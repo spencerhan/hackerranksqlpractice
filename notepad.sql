@@ -137,3 +137,31 @@ SELECT CAST(ROUND(ABS(MIN(LAT_N)-MAX(LAT_N))+ABS(MIN(LONG_W)-MAX(LONG_W)), 4) AS
 FROM STATION;
 
 
+-- Euclidean Distance. https://www.hackerrank.com/challenges/weather-observation-station-19/problem?isFullScreen=true, Advanced Aggregation.
+/* main logic, similar to previous Manhattan Distance problem; 
+SQRT() for square root, SQUARE() for square in sql server */
+
+SELECT CAST(ROUND(SQRT((SQUARE(MAX(LAT_N) - MIN(LAT_N))) + SQUARE(MAX(LONG_W) - MIN(LONG_W))) ,4) AS DECIMAL(9,4))
+FROM STATION;
+
+
+-- The report, https://www.hackerrank.com/challenges/the-report/problem?isFullScreen=true, Basic Join
+/* main logic:  */
+SELECT N, G, M 
+FROM
+    (SELECT (CASE
+                WHEN g.Grade < 8 then NULL
+                ELSE s.Name
+           END) as N, 
+           g.Grade as G,
+           s.Marks as M,
+           (CASE
+                WHEN g.Grade >= 8 then ROW_NUMBER() OVER (PARTITION BY g.Grade ORDER BY s.Name)
+                WHEN g.Grade < 8 then ROW_NUMBER() OVER (PARTITION BY g.Grade ORDER BY s.Marks asc)
+            END) as Rank
+           
+    FROM Students as s
+    JOIN Grades as g 
+    ON FLOOR(s.Marks / 10) * 10 = g.Min_Mark)
+    ORDER BY g.Grade desc) as T
+ORDER BY Rank;
