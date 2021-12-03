@@ -146,22 +146,42 @@ FROM STATION;
 
 
 -- The report, https://www.hackerrank.com/challenges/the-report/problem?isFullScreen=true, Basic Join
-/* main logic:  */
-SELECT N, G, M 
-FROM
-    (SELECT (CASE
-                WHEN g.Grade < 8 then NULL
-                ELSE s.Name
-           END) as N, 
-           g.Grade as G,
-           s.Marks as M,
-           (CASE
-                WHEN g.Grade >= 8 then ROW_NUMBER() OVER (PARTITION BY g.Grade ORDER BY s.Name)
-                WHEN g.Grade < 8 then ROW_NUMBER() OVER (PARTITION BY g.Grade ORDER BY s.Marks asc)
-            END) as Rank
-           
-    FROM Students as s
-    JOIN Grades as g 
-    ON FLOOR(s.Marks / 10) * 10 = g.Min_Mark)
-    ORDER BY g.Grade desc) as T
-ORDER BY Rank;
+/* main logic:  JOIN with BETWEEN instead of normally "=" otherwise FLOOR(s.Marks / 10) * 10 =  g.Min_Marks also a valid logic test.
+   IIF() in sql server.
+   the ORDER BY is quite confusing.
+ */
+
+SELECT IIF(g.Grade < 8, NULL, s.Name) as N,
+    g.Grade as G,
+    s.Marks as M
+FROM Students as s
+    INNER JOIN Grades as g
+    ON s.Marks BETWEEN g.Min_Mark AND g.Max_Mark
+ORDER BY g.grade DESC, s.name ASC, s.Marks ASC;
+
+-- The Top Competititors, https://www.hackerrank.com/challenges/full-score/problem?isFullScreen=true, Basic Join
+/* main logic: 1. starting with FROM and JOIN, then work the way to the ouside. 2. use HAVING to do filtering on aggregated results. */
+SELECT h.hacker_id, h.name
+FROM Hackers AS h
+    JOIN Submissions AS s ON h.hacker_id = s.hacker_id
+    JOIN Challenges AS c ON s.challenge_id = c.challenge_id
+    JOIN Difficulty AS d ON c.difficulty_level = d.difficulty_level
+WHERE s.score = d.score
+GROUP BY h.hacker_id, h.name
+HAVING COUNT(h.hacker_id) > 1
+-- some people suggested used COUNT(1) > 1 instead of count([column]) works the same. 
+ORDER BY COUNT(h.hacker_id) desc, h.hacker_id asc;
+
+-- Ollivander's Inventory, https://www.hackerrank.com/challenges/harry-potter-and-wands/problem?isFullScreen=true, Basic Join
+/* main logic: First use a subquery with window function to keep tracking of the minimum cost of wand in each (power and age) group 
+               Then use the outter query to filter the result based the coins needed equal the least cost. 
+    Another way to achieve this is to use ROW_NUMBER with ORDER BY DESC cluase, then filter the outter query by ROW_NUMBER() = 1
+*/
+
+
+SELECT id, age, coins_needed, power
+FROM (SELECT w.id AS id, wp.age AS age, w.coins_needed AS coins_needed, MIN(w.coins_needed) OVER (PARTITION BY w.power, wp.age) AS min_coins, w.power as power
+    FROM Wands AS w WITH (NOLOCK) INNER JOIN Wands_Property AS wp WITH (NOLOCK) ON w.code=wp.code
+    WHERE wp.is_evil=0) AS t
+WHERE min_coins=coins_needed
+ORDER BY power DESC, age DESC;
