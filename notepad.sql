@@ -178,10 +178,72 @@ ORDER BY COUNT(h.hacker_id) desc, h.hacker_id asc;
     Another way to achieve this is to use ROW_NUMBER with ORDER BY DESC cluase, then filter the outter query by ROW_NUMBER() = 1
 */
 
-
 SELECT id, age, coins_needed, power
 FROM (SELECT w.id AS id, wp.age AS age, w.coins_needed AS coins_needed, MIN(w.coins_needed) OVER (PARTITION BY w.power, wp.age) AS min_coins, w.power as power
     FROM Wands AS w WITH (NOLOCK) INNER JOIN Wands_Property AS wp WITH (NOLOCK) ON w.code=wp.code
     WHERE wp.is_evil=0) AS t
 WHERE min_coins=coins_needed
 ORDER BY power DESC, age DESC;
+
+-- Challenges, https://www.hackerrank.com/challenges/challenges/problem?isFullScreen=true, basic join
+/* main logic:  There are three parts to this problem: 
+1. normal condition: order by total number of challenges desc;
+2. if more than one students, sort by hacker_id desc;
+3. exclude student if more than one students created the same challenge and smaller than the maximum number of chanllenges created. 
+
+The first and second parts can be easily resolved by using ORDER BY with two preceding conditions. 
+
+However the third part have two caveats: 1. if more than one students created the same challenges; or 2. only one student created certain number of challenges. 
+
+Since aggregation involved in this problem (getting count uses aggregation). We need to use Having with OR to deal with the third part (two caveats). 
+
+ */
+
+SELECT h.hacker_id, h.name, COUNT(c.challenge_id)
+FROM Hackers as h
+    JOIN Challenges as c
+    ON h.hacker_id = c.hacker_id
+GROUP BY h.hacker_id, h.name
+HAVING COUNT(challenge_id) = (SELECT MAX(max_cnt)
+                                FROM
+                                    (SELECT COUNT(challenge_id) AS max_cnt, hacker_id
+                                    FROM challenges
+                                    GROUP BY (hacker_id)) AS t1) -- here we use sub queries to find out what's the maximum number of challenges created by each students, and then finding out whether the aggregated amount of challenges equal to that maximum. 
+       OR COUNT(c.hacker_id) IN (SELECT chg_cnt
+                                 FROM
+                                    (SELECT COUNT(hacker_id) AS chg_cnt
+                                    FROM Challenges
+                                    GROUP BY hacker_id) AS t2
+                                GROUP BY chg_cnt
+                                HAVING count(chg_cnt) = 1
+                                )  -- here we solve the second caveat by checking whether a student is in a list of students that create a unique amount of challenges
+ORDER BY COUNT(c.challenge_id) DESC, h.hacker_id; -- this order solves the first and second requirement. 
+
+
+-- Contest Leaderboard, https://www.hackerrank.com/challenges/contest-leaderboard/problem?h_r=next-challenge&h_v=zen&isFullScreen=true, Basic Join 
+
+/* Main logic: 1. We need first exclude all students that sored 0 in the sub query, 
+               2. then find out the max scored obtained by each student in each challenges (among their multiple submissions in each challenge with MAX aggregation;
+               3. lastly use the SUM aggregation to calculate the total. 
+               * using windown function with ROW number based on score order for each student and challenge combination should also do the trick.
+*/
+DECLARE @t1 TABLE (hacker_id int, score int);
+DECLARE @t2 TABLE (hacker_id int, max_score int, challenge_id int);
+SELECT t2.hacker_id, h.name, SUM(t2.max_score) as score
+FROM Hackers as h
+JOIN
+    (SELECT s.hacker_id, MAX(score) as max_score, s.challenge_id
+    FROM Submissions s
+    JOIN
+        (SELECT hacker_id
+        FROM Submissions
+        GROUP BY hacker_id
+        HAVING SUM(score) > 0
+        ) AS t1 -- excluding any students who score 0.
+    ON s.hacker_id = t1.hacker_id
+    GROUP BY s.hacker_id, s.challenge_id -- getting max score for each challenge over multiple submissions 
+    ) AS t2 
+ON t2.hacker_id = h.hacker_id
+GROUP BY t2.hacker_id, h.name
+ORDER BY score DESC, t2.hacker_id ASC;
+
