@@ -47,6 +47,21 @@ ORDER BY DATEDIFF(day, a.s_d, b.e_d) asc, a.s_d;
 -- first sort by project duration then by project start date. 
 
 
+SELECT t1.Start_Date, t2.End_Date
+FROM
+    (SELECT Start_Date, ROW_NUMBER() OVER (ORDER BY Start_Date ASC) as rn_start
+    FROM Projects
+    WHERE Start_Date 
+    NOT IN (SELECT End_Date FROM Projects)) AS t1
+JOIN 
+    (SELECT End_Date, ROW_NUMBER() OVER (ORDER BY End_Date ASC) as rn_end
+    FROM projects
+    WHERE End_Date 
+    NOT IN (SELECT Start_Date From Projects)) AS t2 
+ON t1.rn_start = t2.rn_end
+ORDER BY DATEDIFF(day,t1.Start_date, t2.End_Date) ASC, t1.Start_Date;
+
+
 
 -- Weather stations, Aggregation, https://www.hackerrank.com/challenges/weather-observation-station-20/problem?isFullScreen=true, Advanced Aggregation
 /* main logic: Percentile function with window function
@@ -247,3 +262,50 @@ ON t2.hacker_id = h.hacker_id
 GROUP BY t2.hacker_id, h.name
 ORDER BY score DESC, t2.hacker_id ASC;
 
+-- Placements, https://www.hackerrank.com/challenges/placements/problem?h_r=next-challenge&h_v=zen&isFullScreen=true, Advanced join
+/* Nested join comparison steps outlined below */
+
+---Step 1: Friend salary
+SELECT s.id AS ID, s.Name AS name, p.Salary AS fSalary
+FROM Students s
+JOIN Friend f
+ON s.id = f.id
+JOIN Packages p 
+ON f.Friend_ID = p.ID
+;
+
+---Step2: OWN Salary
+SELECT s.id AS ID, s.Name AS name, p.Salary AS sSalary
+FROM Students s
+JOIN Packages p
+ON s.ID = p.ID;
+
+---Together 
+SELECT t1.name
+FROM
+    (SELECT s.id AS ID, s.Name AS name, p.Salary AS sSalary
+    FROM Students s
+        JOIN Packages p
+        ON s.ID = p.ID) AS t1
+    JOIN (SELECT s.id AS ID, s.Name AS name, p.Salary AS fSalary
+    FROM Students s
+        JOIN Friends f
+        ON s.id = f.id
+        JOIN Packages p
+        ON f.Friend_ID = p.ID) AS t2
+    ON t1.name = t2.name AND t1.sSalary < t2.fSalary
+ORDER BY t2.fSalary;
+
+
+-- Symmetric Pairs, https://www.hackerrank.com/challenges/symmetric-pairs/problem?h_r=next-challenge&h_v=zen, Advanced Join
+ /* Main logic: Self join, removing duplicate is the key */
+
+SELECT t1.X, t1.Y
+FROM Functions t1
+JOIN Functions t2
+ON t1.X = t2.Y AND t1.Y = t2.X -- it contains duplicate also, the matching condition, we need to remove duplicates in later process. 
+GROUP BY t1.X, t1.Y
+HAVING COUNT(t1.X) > 1 OR t1.X < t1.Y 
+-- After group by we will have duplicated records, for example (3,24) appears once is not a symmetric, (3,24) appears twice will be a symmetric pari; 
+-- secondly (3,24) is the same as (24,3), therefore we only need to keep one pair.
+ORDER BY t1.X ASC; 
