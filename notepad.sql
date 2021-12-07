@@ -309,3 +309,88 @@ HAVING COUNT(t1.X) > 1 OR t1.X < t1.Y
 -- After group by we will have duplicated records, for example (3,24) appears once is not a symmetric, (3,24) appears twice will be a symmetric pari; 
 -- secondly (3,24) is the same as (24,3), therefore we only need to keep one pair.
 ORDER BY t1.X ASC; 
+
+-- Average Population, https://www.hackerrank.com/challenges/average-population/problem?isFullScreen=true&h_r=next-challenge&h_v=zen, Aggregation
+/* main logic: FLOOR, CEILING, ROUND */
+SELECT FLOOR(AVG(POPULATION))
+FROM CITY;
+
+-- Interviews, https://www.hackerrank.com/challenges/interviews/problem?isFullScreen=true, Advanced Join
+/* main logic, there are 1 to many relationships in here 
+https://medium.com/@smohajer85/sql-challenge-interviews-a50d205d4f3a, this guy also mentioned using CTE. So I reengineered with CTEs based on his brilliant design,
+*/
+-- contest_id, hacker_id. name, SUM(total_submissions), SUM(total_accepted_submissions), SUM(total_views), SUM(total_unique_views)
+
+SELECT Contests.contest_id, hacker_id, name, SUM(totsub), SUM(totaccsub), SUM(totview), SUM(totuniquview)
+FROM Contests
+JOIN Colleges
+ON Contests.contest_id = Colleges.contest_id
+JOIN Challenges
+ON Colleges.college_id  = Challenges.college_id  
+LEFT JOIN
+    (SELECT Challenges.challenge_id, SUM(total_submissions) AS totsub, SUM(total_accepted_submissions) AS totaccsub
+    FROM Submission_Stats
+    JOIN Challenges
+        ON Submission_Stats.challenge_id  = Challenges.challenge_id  
+    GROUP BY Challenges.challenge_id) AS t1
+ON Challenges.challenge_id = t1.challenge_id
+LEFT JOIN
+    (SELECT Challenges.challenge_id, SUM(total_views) AS totview, SUM(total_unique_views) AS totuniquview
+    FROM View_Stats
+    JOIN Challenges
+        ON View_Stats.challenge_id = Challenges.challenge_id
+    GROUP BY Challenges.challenge_id) AS t2
+ON Challenges.challenge_id = t2.challenge_id
+GROUP BY Contests.contest_id, name, hacker_id
+HAVING SUM(totsub) + SUM(totaccsub) + SUM(totview) + SUM(totuniquview) != 0
+ORDER BY Contests.contest_id;
+
+
+WITH 
+t1 AS (SELECT Contests.contest_id, hacker_id, name, Colleges.college_id
+            FROM Contests
+            JOIN Colleges
+            ON Contests.contest_id = Colleges.contest_id
+), 
+t2 AS (SELECT t1.contest_id, hacker_id, name, Challenges.challenge_id
+       FROM t1
+       JOIN Challenges
+       ON t1.college_id = Challenges.college_id
+), 
+t3 AS (SELECT Challenges.challenge_id, SUM(total_views) AS totview, SUM(total_unique_views) AS totuniquview 
+       FROM Challenges
+       JOIN View_Stats
+       ON Challenges.challenge_id = View_Stats.challenge_id
+       GROUP BY Challenges.challenge_id
+),
+t4 AS (SELECT Challenges.challenge_id, SUM(total_submissions) AS totsub, SUM(total_accepted_submissions) AS totaccsub 
+       FROM Challenges
+       JOIN Submission_Stats
+       ON Challenges.challenge_id = Submission_Stats.challenge_id
+       GROUP BY Challenges.challenge_id
+),
+t5 AS (SELECT t2.contest_id, hacker_id, name, t2.challenge_id, totvie, totuniquview 
+       FROM t2
+       LEFT JOIN t3
+       ON t2.challenge_id = t3.challenge_id
+
+),
+t6 AS (
+       SELECT t5.contest_id, hacker_id, name, t5.challenge_id, totsub, totaccsub, totview, totuniquview
+       FROM t5
+       LEFT JOIN t4
+       ON t5.challenge_id = t4.challenge_id
+),  -- select * from t6 (left join unmatched will be null in view and submission stats columns), we need to set nulls to 0
+t7 AS (
+    SELECT contest_id, hacker_id, name, COALESCE(totsub,0) AS totsub, COALESCE(totaccsub,0) AS totaccsub, COALESCE(totview,0) AS totview, COALESCE(totuniquview,0) AS totuniquview
+    FROM t6
+), 
+t8 AS (
+    SELECT *, total = SUM(totsub, totaccsub, totview, totuniquview)
+    FROM t7
+)
+SELECT contest_id, hacker_id, name, SUM(totsub), SUM(totaccsub), SUM(totview), SUM(totuniquview)
+FROM t8
+WHERE total != 0
+GROUP BY contest_id, name, hacker_id
+ORDER BY contest_id;
