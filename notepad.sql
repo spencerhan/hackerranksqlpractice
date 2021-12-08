@@ -394,3 +394,22 @@ FROM t8
 WHERE total != 0
 GROUP BY contest_id, name, hacker_id
 ORDER BY contest_id;
+
+
+-- The Blunder, https://www.hackerrank.com/challenges/the-blunder/problem, Aggregation
+/* main logic: multiple cast */
+SELECT CAST(CEILING(AVG(CAST(Salary AS FLOAT)) - AVG(CAST(REPLACE(CAST(Salary AS VARCHAR),'0','') AS FLOAT))) AS INT)
+FROM EMPLOYEES;
+
+-- Top Earners, https://www.hackerrank.com/challenges/earnings-of-employees/problem, Aggregation
+SELECT TOP 1 salary*months, COUNT(*) 
+FROM Employee 
+GROUP BY (salary * months) 
+ORDER BY (salary * months) DESC;
+-- window funtion version.
+SELECT topearning, count(name)
+FROM (SELECT salary * months as topearning, name, dense_rank() OVER (ORDER BY salary * months DESC) as rank
+FROM Employee
+) t1
+WHERE t1.rank = 1
+GROUP BY topearning; 
