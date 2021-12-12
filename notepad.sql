@@ -413,3 +413,48 @@ FROM Employee
 ) t1
 WHERE t1.rank = 1
 GROUP BY topearning; 
+
+-- Weather Observation Station 2, https://www.hackerrank.com/challenges/weather-observation-station-2/problem?isFullScreen=true, Aggregation
+SELECT CAST(ROUND(SUM(LAT_N),2) AS DECIMAL(9,2)), CAST(ROUND(SUM(LONG_W),2) AS DECIMAL(9,2))
+FROM STATION;
+
+
+
+-- Weather Observation Station 13, https://www.hackerrank.com/challenges/weather-observation-station-13/problem, Aggregation
+SELECT CAST(SUM(LAT_N) AS DECIMAL(18,4))
+FROM STATION
+WHERE LAT_N > 38.7880 AND LAT_N < 137.2345;
+
+
+-- Second Highest Salary, https://leetcode.com/problems/second-highest-salary
+/* main logic, window function to get rank */
+IF (SELECT COUNT(DISTINCT rank) FROM (SELECT dense_rank() OVER (ORDER BY Salary desc) AS rank FROM Employee) t) < 2 
+    SELECT TOP 1 null as SecondHighestSalary FROM Employee -- top 1 to get rid of duplicates
+ELSE
+SELECT TOP 1 e.Salary as SecondHighestSalary -- top 1 to get rid of duplicates
+FROM Employee e
+JOIN
+(SELECT Salary, dense_rank() OVER (ORDER BY salary desc) AS rank
+FROM Employee) t
+ON e.Salary = t.Salary
+WHERE t.rank = 2;
+
+-- should be a better way of doing this. faster than 46% queries. 
+
+-- Nth Highest Salary, https://leetcode.com/problems/nth-highest-salary/
+/* main logic, window function to get rank */
+CREATE FUNCTION getNthHighestSalary(@N INT) RETURNS INT AS
+BEGIN
+    RETURN (
+        /* Write your T-SQL query statement below. */
+       SELECT TOP 1
+        Salary AS getNthHighestSalary -- top 1 to remove duplicates.
+    FROM
+        (SELECT Salary, dense_rank() OVER (ORDER BY Salary desc) AS srank
+        FROM Employee
+) t
+    WHERE srank = @N
+    );
+END
+
+-- no need to improve, faster than 84% queries. 
