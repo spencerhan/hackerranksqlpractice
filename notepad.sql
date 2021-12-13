@@ -500,3 +500,53 @@ SELECT b.player_id, b.event_date,
 FROM Activity b
 ORDER BY b.player_id;
 -- solution 2: join query, faster than 93% queries
+
+
+-- Consecutive Number, https://leetcode.com/problems/consecutive-numbers/submissions/  
+
+SELECT DISTINCT t1.ConsecutiveNums -- distinct is needed to remove duplicates
+FROM
+    (SELECT
+        (CASE 
+    WHEN num = LEAD(num, 1, 0) OVER (ORDER BY id DESC) AND num = LEAD(num,2,0) OVER (ORDER BY id DESC) THEN num -- using two lead() to check the next and the third consecutive number.
+    END) AS ConsecutiveNums
+    FROM Logs) t1
+WHERE  t1.ConsecutiveNums  IS NOT NULL;
+
+-- faster than 54% of code. 
+
+SELECT DISTINCT t1.num as ConsecutiveNums
+FROM (SELECT num, LEAD(num,1,0) OVER (ORDER BY id DESC) as next_num, LEAD(num,2,0) OVER (ORDER BY id DESC) as next_next_num
+      FROM Logs
+     ) t1
+WHERE t1.num = t1.next_num AND t1.num = t1.next_next_num;
+
+-- using where faster than 77.12%
+
+-- the follwing two queries works the same, notice the difference in joining condition and where clause. 
+SELECT DISTINCT t1.num as ConsecutiveNums
+FROM Logs t1
+JOIN Logs t2
+ON t1.id = t2.id - 1 -- join on the next consective number. 
+JOIN Logs t3
+ON t1.id = t3.id - 2 -- join on the next next consective number  (this is where the consective from)
+WHERE t1.num = t2.num AND t1.num = t3.num;
+-- this only faster than 47.43% queries, I guess there are two full joins here.
+
+
+SELECT DISTINCT t1.num as ConsecutiveNums
+FROM Logs t1
+JOIN Logs t2
+ON t1.id = t2.id - 1 
+JOIN Logs t3
+ON t2.id = t3.id - 1 
+WHERE t1.num = t2.num AND t1.num = t3.num;
+-- faster than 95.20% queries,  the second join is built on the first join where lots of duplicated records has been filtered out. 
+
+-- Combine Two Tables, https://leetcode.com/problems/combine-two-tables/
+/* left join */
+
+SELECT p.firstName, p.lastName, a.city, a.state
+FROM PERSON p
+LEFT JOIN ADDRESS a
+ON p.personId = a.personId
