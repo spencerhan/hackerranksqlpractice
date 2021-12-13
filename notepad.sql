@@ -458,3 +458,45 @@ BEGIN
 END
 
 -- no need to improve, faster than 84% queries. 
+
+-- Rank scores, https://leetcode.com/problems/rank-scores/submissions/
+
+/* main logic: continuous ranking, no gap, needs to use dense_rank. */
+-- this is faster than 40% queries, dense_rank is more costly. 
+SELECT score, DENSE_RANK() OVER (ORDER BY score DESC) as rank
+FROM Scores;
+
+-- 1. Interesting comparison, when use group by, this obvisouly will collapse the groups, which is simply gives the rank within the dataset.
+SELECT b.score, count(distinct a.Score) as rank
+FROM Scores b
+JOIN Scores a
+ON b.score<=a.score
+group by b.score
+order by 1 desc;
+
+-- 2. Alternative way is to use join within the columns to avoid aggregate entire ouput with group by clause. 
+-- this is fater than 87% queries. 
+SELECT 
+    b.Score, 
+	(SELECT COUNT(DISTINCT a.Score) -- this is actually the rank.
+    FROM Scores a WHERE b.Score <= a.Score) as 'rank'
+FROM Scores b ORDER BY 'rank'
+
+
+-- Game Play Analysis III, https://leetcode.com/problems/game-play-analysis-iii/
+/* main logic: accumulative sum (not rolling sum, otherwise use LAG() */
+
+SELECT player_id, event_date,
+SUM(games_played) OVER (PARTITION BY player_id ORDER BY event_date) as games_played_so_far
+FROM Activity
+;
+-- solution 1: window function with SUM() faster than 85% queries
+
+SELECT b.player_id, b.event_date,
+    (SELECT SUM(games_played)
+    FROM Activity a
+    WHERE a.Player_id = b.Player_id AND b.event_date >= a.event_date) -- be careful with the comparison sign
+    AS games_played_so_far
+FROM Activity b
+ORDER BY b.player_id;
+-- solution 2: join query, faster than 93% queries
