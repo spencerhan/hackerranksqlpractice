@@ -550,3 +550,29 @@ SELECT p.firstName, p.lastName, a.city, a.state
 FROM PERSON p
 LEFT JOIN ADDRESS a
 ON p.personId = a.personId
+
+
+-- Department Highest Salary, https://leetcode.com/problems/department-highest-salary/
+/* Highest, top? rank? max? */
+SELECT d.name as Department, t.name as Employee, t.salary as Salary
+FROM
+(SELECT * , rank() OVER (PARTITION BY departmentId ORDER BY salary DESC) ranking
+FROM Employee) t
+JOIN Department d
+ON t.departmentId = d.id
+WHERE t.ranking = 1;
+
+-- faster than 36.44% queries. 
+
+WITH t1 AS (SELECT d.id as departmentId, d.name as Department, max(salary) as max_salary
+FROM Employee e1
+JOIN Department d
+ON d.id = e1.departmentId
+GROUP BY d.id, d.name) -- the key things is to aggregate on the joined table column instead of own column
+SELECT t1.Department, e2.name as Employee, t1.max_salary as Salary
+FROM t1
+JOIN Employee e2
+ON e2.departmentId = t1.departmentId AND e2.salary = t1.max_salary;
+
+-- CTE implementation, faster than 68.55% solution. 
+-- there are might be a way to use TOP 1 with order to get rank, but I have not find a way to do this. 
