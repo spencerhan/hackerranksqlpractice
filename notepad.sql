@@ -576,3 +576,62 @@ ON e2.departmentId = t1.departmentId AND e2.salary = t1.max_salary;
 
 -- CTE implementation, faster than 68.55% solution. 
 -- there are might be a way to use TOP 1 with order to get rank, but I have not find a way to do this. 
+
+
+-- Game Play Analysis IV, https://leetcode.com/problems/game-play-analysis-iv/
+/* main logic: DATEADD(day/month/year, ,) to get the second login time. 
+alternatives DATEDIFF(day/month/year, ),
+(WINDOW function might work in this case as well) */
+
+
+WITH c1 AS (
+SELECT COUNT(DISTINCT a1.player_id) as count
+FROM Activity a1
+JOIN ACtivity a2
+ON a1.player_id = a2.player_id AND a1.event_date = DATEADD(day, 1, a2.event_date)
+
+) 
+SELECT ROUND(c1.count * 1.00/(SELECT COUNT(DISTINCT player_id) FROM Activity),2) AS fraction
+FROM c1;
+
+-- this is an wrong solution, it does not take into account that the consecutive login has to occur after the first login. 
+
+WITH login_after_first_time AS (
+    SELECT player_id, DATEADD(day, 1, min(event_date)) as consecutive_login
+    FROM Activity 
+    GROUP BY player_id
+),
+player_count AS (
+    SELECT COUNT(DISTINCT(a1.player_id)) AS count
+    FROM Activity a1
+    JOIN login_after_first_time
+    ON login_after_first_time.player_id = a1.player_id AND login_after_first_time.consecutive_login = a1.event_date
+)
+
+SELECT CAST(ROUND((player_count.count * 1.00/(SELECT COUNT(DISTINCT(a2.player_id)) FROM Activity a2)),2) AS DECIMAL(9,2)) AS fraction
+FROM player_count
+
+-- faster than 28.15% queries.
+
+SELECT
+    ROUND(CAST(SUM(CASE WHEN datediff(day,first_login,event_date)=1 THEN 1 ELSE 0 END) AS DECIMAL(9,2))/count(DISTINCT player_id),2) AS fraction
+FROM
+    (    
+    SELECT
+        player_id,
+        event_date,
+        first_value(event_date) OVER (PARTITION BY player_id ORDER BY event_date) AS first_login
+    FROM activity
+) t
+-- window function version, faster than 65.96% result
+
+--Managers with at Least 5 direct report. https://leetcode.com/problems/managers-with-at-least-5-direct-reports/
+SELECT e1.name
+FROM
+(SELECT name, id
+FROM Employee) AS e1
+LEFT JOIN Employee e2
+ON e1.id = e2.managerId
+GROUP BY e1.name
+HAVING count(e2.managerId) >= 5
+-- simple self join. faster than 75.83% result.
