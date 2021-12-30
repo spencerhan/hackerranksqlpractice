@@ -635,3 +635,121 @@ ON e1.id = e2.managerId
 GROUP BY e1.name
 HAVING count(e2.managerId) >= 5
 -- simple self join. faster than 75.83% result.
+
+-- Winning Candidate, https://leetcode.com/problems/winning-candidate/
+/* main logic: number of votes exists as repeated occurence in Vote table, for example candiditeId 2 occured twice, means B got 2 votes
+    I'm using row number to get the number of occurences
+*/
+
+
+SELECT c.name
+FROM Candidate c
+    JOIN Vote v
+    ON c.id = v.candidateId
+GROUP BY c.name
+HAVING count(v.id) = (SELECT max(rn)
+                    FROM
+                        (SELECT row_number() OVER (PARTITION BY candidateId ORDER BY id) as rn
+                        FROM Vote) t)
+
+-- faster than 43.56% query. 
+
+
+-- Get Highest Answer Rate Question, https://leetcode.com/problems/get-highest-answer-rate-question/
+
+WITH t1 AS (
+    SELECT count(question_id) AS count, question_id
+    FROM SurveyLog
+    WHERE answer_id IS NOT null AND action = 'answer'
+    GROUP BY question_id)
+SELECT question_id as survey_log 
+FROM SurveyLog
+WHERE answer_id IS NOT null AND action = 'answer'
+GROUP BY question_id
+HAVING count(question_id)  = (SELECT MAX(t1.count) as max_answered FROM t1);
+
+-- CTE solution, faster 13.6% of queries,. Purhaps should use window function with ROW_NUMBER
+
+
+-- Employees Earning More Than Their Managers, https://leetcode.com/problems/employees-earning-more-than-their-managers/
+/* Easy self join */
+
+SELECT e1.name as Employee
+FROM Employee e1
+JOIN Employee e2
+ON e1.managerId = e2.id AND e1.salary > e2.salary;
+
+
+-- Count Student Number in Departments, https://leetcode.com/problems/count-student-number-in-departments/
+
+/* count or max(row_number) */
+
+
+SELECT DISTINCT d.dept_name, (CASE
+                      WHEN t2.student_count IS Null Then 0
+                      ELSE t2.student_count
+                   END) AS student_number
+FROM Department d
+LEFT JOIN
+    (SELECT MAX(rn) OVER (PARTITION BY t1.dept_id) AS student_count, t1.dept_id
+    FROM
+        (SELECT ROW_NUMBER() OVER (PARTITION BY dept_id ORDER BY student_id) as rn, dept_id
+        FROM Student) AS t1) AS t2
+ON d.dept_id = t2.dept_id
+ORDER BY student_number desc, d.dept_name
+
+-- REMERBER!!! use distinct to get rid duplicates from left join. faster than 52% of queries. count should do the trick with window function too.
+
+
+--Investments in 2016, https://leetcode.com/problems/investments-in-2016/
+WITH t AS(
+    SELECT
+        tiv_2016
+        , COUNT(*) OVER (PARTITION BY tiv_2015) AS count_15
+        , COUNT(*) OVER (PARTITION BY lat, lon) AS  count_loc
+    FROM Insurance
+)
+SELECT
+    CAST(SUM(tiv_2016) AS DECIMAL(10,2)) AS tiv_2016
+FROM t
+WHERE count_15 >= 2 AND count_loc = 1;
+
+-- faster than 58% of query
+
+
+
+--Friend Requests II: Who Has the Most Friends, https://leetcode.com/problems/friend-requests-ii-who-has-the-most-friends/
+
+/* self left join with CTE, do not use Window function otherwise it will leave duplicates */
+
+WITH t1 AS (
+            SELECT requester_id, count(*) as rqst_cnt
+            FROM RequestAccepted
+            GROUP BY requester_id
+),
+t2 AS (
+       SELECT accepter_id, count(*) as accpt_cnt
+       FROM RequestAccepted
+       GROUP BY accepter_id 
+)
+SELECT TOP 1 t1.requester_id, isnull(t1.rqst_cnt,0) + isnull(t2.accpt_cnt,0) as num
+FROM t1
+LEFT JOIN t2
+ON t1.requester_id = t2.accepter_id
+ORDER BY isnull(t1.rqst_cnt,0) + isnull(t2.accpt_cnt,0) desc
+
+-- I only worked out the first logic where 'Left join' is needed. 
+-- However, we need isnull to remove null from left join. and use "top 1" and "order by" to get the result. 
+
+
+-- Tree Node, https://leetcode.com/problems/tree-node/
+/* case statement with 'In clause'*/
+
+SELECT t1.id, (CASE
+               WHEN t1.p_id is null then 'Root'
+               WHEN t1.id in (SELECT t2.p_id FROM Tree AS t2)  then 'Inner'
+               ELSE 'Leaf'
+           END) AS type
+FROM Tree AS t1
+
+-- this is similar to the one I have done in hackers rank.
