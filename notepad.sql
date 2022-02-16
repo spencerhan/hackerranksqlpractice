@@ -440,6 +440,18 @@ ON e.Salary = t.Salary
 WHERE t.rank = 2;
 
 -- should be a better way of doing this. faster than 46% queries. 
+DECLARE @count int;
+SET @count = (SELECT COUNT(salary) FROM Employee);
+IF @count < 2
+    SELECT 'null' as SecondHighestSalary FROM Employee
+ELSE 
+    SELECT DISTINCT salary as SecondHighestSalary
+    FROM Employee
+    ORDER BY Salary DESC
+    OFFSET 1 ROWS
+    FETCH NEXT 1 ROW ONLY;
+
+-- better solution using offset
 
 -- Nth Highest Salary, https://leetcode.com/problems/nth-highest-salary/
 /* main logic, window function to get rank */
@@ -449,11 +461,11 @@ BEGIN
         /* Write your T-SQL query statement below. */
        SELECT TOP 1
         Salary AS getNthHighestSalary -- top 1 to remove duplicates.
-    FROM
-        (SELECT Salary, dense_rank() OVER (ORDER BY Salary desc) AS srank
-        FROM Employee
-) t
-    WHERE srank = @N
+       FROM
+            (SELECT Salary, dense_rank() OVER (ORDER BY Salary desc) AS srank
+            FROM Employee
+            ) t
+       WHERE srank = @N
     );
 END
 
@@ -589,7 +601,6 @@ SELECT COUNT(DISTINCT a1.player_id) as count
 FROM Activity a1
 JOIN ACtivity a2
 ON a1.player_id = a2.player_id AND a1.event_date = DATEADD(day, 1, a2.event_date)
-
 ) 
 SELECT ROUND(c1.count * 1.00/(SELECT COUNT(DISTINCT player_id) FROM Activity),2) AS fraction
 FROM c1;
@@ -753,3 +764,58 @@ SELECT t1.id, (CASE
 FROM Tree AS t1
 
 -- this is similar to the one I have done in hackers rank.
+
+
+-- 612. Shortest Distance in a Plane, https://leetcode.com/problems/shortest-distance-in-a-plane/
+/* main logic: cross join */
+
+SELECT CAST(ROUND(MIN(dis),2) AS DECIMAL(9,2)) as shortest
+FROM 
+(SELECT SQRT(SQUARE(p2.x - p1.x) + SQUARE(p2.y - p1.y)) as dis
+FROM Point2D as p1
+CROSS JOIN Point2D as p2) as t
+WHERE dis > 0 -- this removes self calculating;
+-- I first thought using cursor turns out it's an over complicated thinking. Cross join is way more efficient. 
+
+-- 614. Second Degree Follower SELECT f1.followee as follower, COUNT(DISTINCT f1.follower) as num
+/* main logic: self join */
+SELECT f1.followee as follower, COUNT(DISTINCT f1.follower) as num
+FROM Follow as f1
+JOIN Follow as f2
+ON f1.followee = f2.follower
+GROUP BY f1.followee
+ORDER BY f1.followee
+
+
+-- 626. Exchange Seats, https://leetcode.com/problems/exchange-seats/
+/* main logic: do not think iteration or if-else , use LEAD and LAG for swap, ISNULL to deal with the first row */
+
+SELECT s.id AS id
+,IIF(s.id % 2 = 1, 
+    ISNULL(LEAD(student) OVER (ORDER BY id ASC), s.student), LAG(student) OVER (ORDER BY id ASC)
+    ) AS student
+FROM Seat s
+
+
+
+-- 1045. Customers Who Bought All Products, https://leetcode.com/problems/customers-who-bought-all-products/
+
+/* main logic: simple sub query */
+
+/* 
+The following window function will not work as customer may bought multiple products, and you CANNOT use distinct in WINDOW function.
+
+SELECT DISTINCT t1.customer_id FROM
+    (SELECT t.customer_id AS customer_id, COUNT(t.product_key) OVER (PARTITION BY t.customer_id) as product_count
+    FROM Customer t
+    JOIN Product p
+    ON t.product_key = p.product_key) AS t1
+WHERE t1.product_count = (SELECT COUNT(DISTINCT product_key) FROM Product) */
+
+
+SELECT c.customer_id 
+From Customer c
+JOIN Product p
+ON c.product_key = p.product_key
+GROUP BY c.customer_id
+HAVING COUNT(DISTINCT c.product_key) = (SELECT COUNT(DISTINCT product_key) FROM Product)
