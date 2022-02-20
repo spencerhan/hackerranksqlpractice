@@ -819,3 +819,139 @@ JOIN Product p
 ON c.product_key = p.product_key
 GROUP BY c.customer_id
 HAVING COUNT(DISTINCT c.product_key) = (SELECT COUNT(DISTINCT product_key) FROM Product)
+
+-- 1070. Product Sales Analysis III, https://leetcode.com/problems/product-sales-analysis-iii/
+/* main logic: simple RANK() window function */
+SELECT product_id, year as first_year, quantity, price
+FROM
+    (SELECT product_id, year, quantity, price, RANK() OVER (PARTITION BY product_id ORDER BY year asc) as rk 
+    FROM Sales) t
+WHERE rk = 1
+
+
+-- 1010, Pairs of Songs With Total Durations Divisible by 60, https://leetcode.com/problems/pairs-of-songs-with-total-durations-divisible-by-60/
+
+WITH t1 AS (
+    SELECT p.project_id, p.employee_id, DENSE_RANK() OVER (PARTITION BY p.project_id ORDER BY e.experience_years desc) as rnk
+    FROM Project p
+    CROSS APPLY Employee e
+    WHERE p.employee_id = e.employee_id
+)
+SELECT project_id, employee_id
+FROM t1
+WHERE rnk = 1
+
+
+-- 1098. Unpopular Books, https://leetcode.com/problems/unpopular-books/
+
+/* main logic: the question itself is really confusing. 
+    1. Reverse thinking, to get a list of books that does not fit search criteria.
+    2. use dateadd, do not use straight forward date comparison.
+*/
+
+SELECT book_id, name
+FROM books
+WHERE book_id NOT IN (
+                        SELECT book_id
+                        FROM Orders
+                        GROUP BY book_id
+                        HAVING SUM(CASE WHEN dispatch_date >= DATEADD(YEAR, -1, '2019-06-23' ) THEN quantity else 0 end) >= 10
+                    UNION (
+                             SELECT book_id
+                             FROM Books
+                             WHERE available_from > DATEADD(MONTH, -1, '2019-06-23' ))) 
+
+
+-- 1107. New Users Daily Count, https://leetcode.com/problems/new-users-daily-count/
+
+/* main logic, use ROW_NUMBER to get the first login in every date. */
+WITH t1 AS (
+            SELECT *, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY activity_date) as rnumber
+            FROM Traffic 
+            WHERE activity = 'login'
+            
+),
+t2 AS (SELECT *
+       FROM t1
+       WHERE activity_date >= DATEADD(day, -90, '2019-06-30')
+)
+SELECT activity_date as login_date, COUNT(rnumber) as user_count
+FROM t2
+WHERE rnumber = 1
+GROUP BY activity_date
+
+/* solution number 2: */
+BEGIN
+SELECT A.activity_date AS login_date, COUNT(DISTINCT A.user_id) AS user_count
+FROM (
+      SELECT user_id,activity_date
+      FROM Traffic 
+      WHERE activity_date >= DATEADD(day, -90, '2019-06-30')) A
+JOIN (
+      SELECT user_id,min(activity_date) AS minDate 
+      FROM Traffic
+      WHERE activity = 'login'
+      GROUP BY user_id ) B
+ON A.user_id = B.user_id and A.activity_date = B.minDate
+GROUP BY A.activity_date
+END
+
+/* 1112. Highest Grade For Each Student, https://leetcode.com/problems/highest-grade-for-each-student/
+ main logic: window function */
+BEGIN 
+WITH t1 AS (SELECT max(grade) as maxgrade, student_id
+FROM Enrollments
+GROUP BY student_id)
+,t2 AS (
+    SELECT t1.maxgrade, t1.student_id, row_number() OVER (partition by t1.student_id order by course_id) as rownum, Enrollments.course_id as course_id
+    FROM t1
+    JOIN Enrollments
+    ON Enrollments.student_id = t1.student_id AND t1.maxgrade = grade
+)
+SELECT t2.student_id, t2.course_id, t2.maxgrade as grade
+FROM t2
+WHERE t2.rownum = 1
+ORDER BY student_id asc
+END
+
+-- 1126. Active Businesses, https://leetcode.com/problems/active-businesses/
+/* main logic: CTE */
+BEGIN
+WITH t1 AS (
+           SELECT AVG(occurences) AS benchmark, event_type
+           FROM Events e1
+           GROUP BY event_type
+),
+t2 AS (
+    SELECT e2.business_id AS business_id
+    FROM Events e2
+    JOIN t1
+    ON e2.event_type = t1.event_type AND e2.occurences > t1.benchmark
+
+)
+SELECT business_id 
+FROM t2
+GROUP BY business_id 
+HAVING count(business_id) > 1;
+END
+
+
+-- 1132. Reported Posts II, https://leetcode.com/problems/reported-posts-ii/
+
+/* main logic:  
+1. use "* 100.00" in calculation - this gives two decimal places in the result
+2. use distcint - multiple spam can be reported and removed during the same day.
+3. use left-join - use this when table on one side is larger than the other side. 
+*/
+
+WITH t1 AS (
+        SELECT COUNT(DISTINCT r.post_id) * 100.00/COUNT(DISTINCT a.post_id) AS avg_spam_per_post
+        FROM Actions a
+        LEFT JOIN Removals r
+        ON a.post_id = r.post_id
+        WHERE a.action = 'report' AND a.extra = 'spam'
+        GROUP BY a.action_date
+)
+
+SELECT ROUND(AVG(avg_spam_per_post),2) AS average_daily_percent 
+FROM t1
