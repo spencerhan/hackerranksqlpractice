@@ -195,7 +195,9 @@ ORDER BY COUNT(h.hacker_id) desc, h.hacker_id asc;
 
 SELECT id, age, coins_needed, power
 FROM (SELECT w.id AS id, wp.age AS age, w.coins_needed AS coins_needed, MIN(w.coins_needed) OVER (PARTITION BY w.power, wp.age) AS min_coins, w.power as power
-    FROM Wands AS w WITH (NOLOCK) INNER JOIN Wands_Property AS wp WITH (NOLOCK) ON w.code=wp.code
+    FROM Wands AS w 
+    INNER JOIN Wands_Property AS wp 
+    ON w.code=wp.code
     WHERE wp.is_evil=0) AS t
 WHERE min_coins=coins_needed
 ORDER BY power DESC, age DESC;
@@ -955,3 +957,28 @@ WITH t1 AS (
 
 SELECT ROUND(AVG(avg_spam_per_post),2) AS average_daily_percent 
 FROM t1
+
+
+-- 1149. Article Views II, https://leetcode.com/problems/article-views-ii/
+/* main logic: simple grouping and having  */
+SELECT DISTINCT viewer_id as id
+FROM Views
+GROUP BY viewer_id, view_date
+HAVING COUNT(DISTINCT article_id) > 1
+ORDER BY id asc;
+
+
+
+-- 1158. Market Analysis I, https://leetcode.com/problems/market-analysis-i/
+/* main logic: simple subquery with left join
+ Remember, whichever side is larger, use the left/right join prefer the larger side.
+*/
+
+SELECT user_id AS buyer_id, join_date, COUNT(t.buyer_id) AS orders_in_2019
+FROM Users
+LEFT JOIN (SELECT buyer_id
+           FROM Orders
+           WHERE order_date >= '2019-01-01') t
+ON Users.user_id = t.buyer_id
+GROUP BY user_id, join_date
+ORDER BY user_id
