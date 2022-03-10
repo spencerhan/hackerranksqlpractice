@@ -892,3 +892,77 @@ SELECT t2.product_id, (CASE
 FROM t1
 RIGHT JOIN t2
 ON t1.product_id = t2.product_id
+
+
+-- 1174. Immediate Food Delivery II, https://leetcode.com/problems/immediate-food-delivery-ii/
+/* main logic: 
+1. row number to get earliest order by date;
+2. then CTEs to organize code
+*/
+
+WITH t1 AS (
+            SELECT delivery_id
+            FROM Delivery 
+            WHERE order_date = customer_pref_delivery_date
+),
+t2 AS (
+        SELECT delivery_id 
+        FROM (SELECT delivery_id, row_number() OVER (PARTITION BY customer_id ORDER BY order_date asc) AS rownum
+        FROM Delivery) t
+        WHERE rownum = 1
+)
+SELECT ROUND((COUNT(t1.delivery_id) * 1.00) / (COUNT(t2.delivery_id) * 1.00) * 100, 2) AS immediate_percentage 
+FROM t1
+RIGHT JOIN t2
+ON t1.delivery_id = t2.delivery_id
+
+
+
+-- 185. Department Top Three Salaries, Hard, https://leetcode.com/problems/department-top-three-salaries/
+/* place holder */
+
+-- 262. Trips and Users, Hard https://leetcode.com/problems/trips-and-users/
+/* place holder */
+
+
+-- 1193. Monthly Transactions I， https://leetcode.com/problems/monthly-transactions-i/
+
+WITH t1 AS (
+    SELECT FORMAT(trans_date,'yyyy-MM') as month, country, COUNT(id) as trans_count, sum(amount) as trans_total_amount
+    FROM Transactions
+    GROUP BY FORMAT(trans_date,'yyyy-MM'), country
+),
+t2 AS (
+    SELECT FORMAT(trans_date,'yyyy-MM') as month, country, COUNT(id) as approved_count , sum(amount) as approved_total_amount 
+    FROM Transactions
+    WHERE state like 'approved'
+    GROUP BY FORMAT(trans_date,'yyyy-MM'), country
+)
+
+SELECT t1.month, t1.country, t1.trans_count, ISNULL(t2.approved_count,0) AS approved_count, t1.trans_total_amount, ISNULL(t2.approved_total_amount,0) AS approved_total_amount
+FROM t1
+LEFT JOIN t2
+ON t1.month = t2.month and t1.country = t2.country
+
+/* alternative method */
+
+select
+left(trans_date,7) as month,
+country,
+sum(case when state is not null then 1 else 0 end) as trans_count,
+sum(case when lower(state) ='approved' then 1 else 0 end) as approved_count,
+sum(case when state is not null then amount else 0 end) as trans_total_amount,
+sum(case when lower(state) ='approved' then amount else 0 end) as approved_total_amount
+from transactions
+group by left(trans_date,7), country
+order by sum(case when state is not null then 1 else 0 end) desc
+
+
+-- 1204. Last Person to Fit in the Bus, https://leetcode.com/problems/last-person-to-fit-in-the-bus/
+SELECT TOP 1 person_name
+FROM (
+        SELECT turn, person_name, sum(weight) OVER (ORDER BY turn) AS rolling_total
+        FROM Queue 
+     ) t
+WHERE rolling_total <= 1000
+ORDER BY turn DESC
