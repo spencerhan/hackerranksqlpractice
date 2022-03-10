@@ -944,18 +944,18 @@ FROM t1
 LEFT JOIN t2
 ON t1.month = t2.month and t1.country = t2.country
 
-/* alternative method */
+/* alternative method: remember SELECT is acting row by row like a loop */
 
 select
-left(trans_date,7) as month,
+FORMAT(trans_date,'yyyy-MM') as month,
 country,
-sum(case when state is not null then 1 else 0 end) as trans_count,
-sum(case when lower(state) ='approved' then 1 else 0 end) as approved_count,
-sum(case when state is not null then amount else 0 end) as trans_total_amount,
-sum(case when lower(state) ='approved' then amount else 0 end) as approved_total_amount
+SUM(case when state is not null then 1 else 0 end) as trans_count,
+SUM(case when LOWER(state) ='approved' then 1 else 0 end) as approved_count,
+SUM(case when state is not null then amount else 0 end) as trans_total_amount,
+SUM(case when LOWER(state) ='approved' then amount else 0 end) as approved_total_amount
 from transactions
-group by left(trans_date,7), country
-order by sum(case when state is not null then 1 else 0 end) desc
+group by FORMAT(trans_date,'yyyy-MM'), country
+order by SUM(case when state is not null then 1 else 0 end) desc
 
 
 -- 1204. Last Person to Fit in the Bus, https://leetcode.com/problems/last-person-to-fit-in-the-bus/
