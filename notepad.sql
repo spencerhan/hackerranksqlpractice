@@ -921,9 +921,45 @@ ON t1.delivery_id = t2.delivery_id
 -- 185. Department Top Three Salaries, Hard, https://leetcode.com/problems/department-top-three-salaries/
 /* place holder */
 
+SELECT d.name AS Department, e.name AS Employee, e.salary AS Salary
+FROM
+    (SELECT dense_rank() OVER (PARTITION BY departmentId ORDER BY salary DESC) as salary_rank, departmentId, id
+    FROM Employee) AS t1
+JOIN Employee e
+ON t1.id = e.id
+JOIN Department d
+ON d.id = t1.departmentId
+WHERE salary_rank <= 3
+ 
+
+
 -- 262. Trips and Users, Hard https://leetcode.com/problems/trips-and-users/
 /* place holder */
 
+WITH t1 AS (
+            SELECT *
+            FROM Users u 
+            WHERE LOWER(banned) = 'No' AND LOWER(role) = 'driver'
+), t2 AS ( 
+         SELECT *
+         FROM Users u 
+         WHERE LOWER(banned) = 'No' AND LOWER(role) = 'client'
+), t3 AS (
+    SELECT COUNT(id) AS total_cancelled, request_at  
+    FROM Trips 
+    WHERE client_id IN (SELECT users_id FROM t2) AND driver_id IN (SELECT users_id FROM t1) AND status LIKE '%cancelled%' AND request_at between '2013-10-01' and '2013-10-03'
+    GROUP BY request_at
+), t4 AS (
+    SELECT COUNT(id) AS total_count, request_at  
+    FROM Trips 
+    WHERE client_id IN (SELECT users_id FROM t2) AND driver_id IN (SELECT users_id FROM t1) AND request_at between '2013-10-01' and '2013-10-03'
+    GROUP BY request_at
+)
+
+SELECT t4.request_at as Day, ISNULL(CAST(CAST(t3.total_cancelled AS FLOAT)/CAST(t4.total_count AS FLOAT) AS DECIMAL(9,2)), 0.00) as 'Cancellation Rate'
+FROM t3 
+RIGHT JOIN t4
+ON t3.request_at = t4.request_at
 
 -- 1193. Monthly Transactions I， https://leetcode.com/problems/monthly-transactions-i/
 
