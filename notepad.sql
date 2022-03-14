@@ -945,7 +945,7 @@ WITH t1 AS (
          FROM Users u 
          WHERE LOWER(banned) = 'No' AND LOWER(role) = 'client'
 ), t3 AS (
-    SELECT COUNT(id) AS total_cancelled, request_at  
+SELECT COUNT(id) AS total_cancelled, request_at  
     FROM Trips 
     WHERE client_id IN (SELECT users_id FROM t2) AND driver_id IN (SELECT users_id FROM t1) AND status LIKE '%cancelled%' AND request_at between '2013-10-01' and '2013-10-03'
     GROUP BY request_at
@@ -1002,3 +1002,79 @@ FROM (
      ) t
 WHERE rolling_total <= 1000
 ORDER BY turn DESC
+
+
+-- 1841. League Statistics, https://leetcode.com/problems/league-statistics/
+/* failed on first try, forgot to use Union All 
+    main logic: 
+    1. try deal the problem from two angels, home game and away game.
+    2. then union them together based on team_name
+    3. it won't be any duplicates
+
+*/
+WITH home AS (
+            SELECT t.team_name, SUM(m.home_team_goals) AS goal_for, count(m.home_team_goals) AS played, SUM(
+                                                                                                            CASE 
+                                                                                                                 WHEN m.home_team_goals > m.away_team_goals THEN 3 -- when playing on the wining side.
+                                                                                                                 WHEN m.home_team_goals = m.away_team_goals THEN 1
+                                                                                                                    ELSE 0
+                                                                                                            END) AS points, 
+                                                                                                            SUM(m.away_team_goals) AS goal_against
+
+            FROM Teams t
+            JOIN Matches m
+            ON t.team_id = m.home_team_id
+            GROUP BY t.team_name
+), away AS (
+            SELECT t.team_name, SUM(m.away_team_goals) AS goal_for, count(m.away_team_goals) AS played, SUM(
+                                                                                                            CASE 
+                                                                                                                WHEN m.home_team_goals < m.away_team_goals THEN 3 -- when playing on the away side
+                                                                                                                WHEN m.home_team_goals = m.away_team_goals THEN 1
+                                                                                                                ELSE 0
+                                                                                                                END) AS points,
+                                                                                                        SUM(m.home_team_goals) AS goal_against
+            FROM Teams t
+            JOIN Matches m
+            ON t.team_id = m.away_team_id
+            GROUP BY t.team_name
+)   
+SELECT team_name, SUM(played) AS matches_played, SUM(points) AS points, SUM(goal_for) AS goal_for, SUM(goal_against) AS goal_against, SUM(goal_for) - SUM(goal_against) AS goal_diff
+FROM (SELECT * FROM home
+UNION ALL (SELECT * FROM away)) AS final
+GROUP BY team_name
+ORDER BY points DESC, goal_diff DESC, team_name ASC;
+
+
+--1501. Countries You Can Safely Invest In, https://leetcode.com/problems/countries-you-can-safely-invest-in/
+
+/* main logic: similar to 1204, using UNION ALL
+    Union all is useful when the same information appears in two columns, and there is a relationship between these two columns, and there is another dimension table contain information for both sides.
+    For example, employer vs employee, caller vs callee, requester vs requestee.
+ */
+
+WITH caller AS (
+                SELECT c.name AS country, SUM(duration) as duration, count(cs.callee_id) AS calls
+                FROM Person AS p
+                JOIN Country AS c
+                ON LEFT(p.phone_number, 3) = c.country_code 
+                JOIN Calls cs
+                ON p.id = cs.caller_id
+                GROUP BY c.name
+), callee AS (
+                SELECT c.name AS country, SUM(duration) as duration, count(cs.callee_id) AS calls
+                FROM Person AS p
+                JOIN Country AS c
+                ON LEFT(p.phone_number, 3) = c.country_code 
+                JOIN Calls cs
+                ON p.id = cs.callee_id
+                GROUP BY c.name
+
+)
+            SELECT country
+            FROM (
+                 (SELECT * FROM caller) 
+                 UNION ALL (SELECT * FROM callee)
+                 ) AS t
+            GROUP BY country
+            HAVING (SUM(duration) * 1.00 / SUM(calls)) > (SELECT AVG(CAST(duration  AS DECIMAL(9,2))) FROM Calls)
+
