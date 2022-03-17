@@ -111,24 +111,16 @@ main logic: pivoting with window function (use row number )
 in this challenge I used sql server's built-in pivoting function. 
 however, an alternative solution is to use CASE statement to manually aggregate and format the result. */
 
-DECLARE @pivot_columns varchar(MAX);
-SET @pivot_columns = '';
-SELECT @pivot_columns = CONCAT("[", @pivot_columns, t.occ, "],[")
-FROM (SELECT DISTINCT Occupation as occ
-    FROM OCCUPATIONS) AS t
-SET @pivot_columns = LEFT(@pivot_columns, LEN(@pivot_columns) - 1)
--- DEBUGGING and get order of occupations, print(@pivot_columns);
 
 SELECT [Doctor], [Professor], [Singer], [Actor]
 -- after pivot, we only has for columns
 FROM
-    (SELECT Name, Occupation, ROW_NUMBER() OVER (PARTITION BY Occupation ORDER BY Name) as rn
+    (SELECT Name, Occupation, ROW_NUMBER() OVER (PARTITION BY Occupation ORDER BY Name) AS rn
     /* row number used to group Name corresponding to the occupation type. I order the name based on the requirement. This return a table with Name, Occupation, Row number in sequences, for example if there are 4 doctors, then 1,2,3,4, if there are 3 Actors, then 1,2,3 */
-    FROM OCCUPATIONS)
-AS t
+    FROM OCCUPATIONS) AS t
 PIVOT ( /* sql server pivting function needs an aggregation for each new column groups. in this case the max function is used to retrive the name, min is fine too. however, count will obvisouly return the occurence rather than the actual name. */ 
     MAX(Name) FOR Occupation IN ([Doctor],[Professor],[Singer],[Actor])
-) AS pt;
+) AS pvt;
 
 
 -- BST Tree, https://www.hackerrank.com/challenges/binary-search-tree-1/problem?isFullScreen=true, Advanced Select
@@ -1078,3 +1070,54 @@ WITH caller AS (
             GROUP BY country
             HAVING (SUM(duration) * 1.00 / SUM(calls)) > (SELECT AVG(CAST(duration  AS DECIMAL(9,2))) FROM Calls)
 
+-- 1454. Active Users, https://leetcode.com/problems/active-users/
+/* main logic: 
+the key idea here is thinking reversely (order by login_date desc)  
+The fist login date is nth day away from the last login date.
+
+Another import thing is to use distinct to get rid of multiple logins in the same day.
+*/
+WITH t1 AS (
+            SELECT id, login_date, DATEADD(day, DENSE_RANK() OVER (PARTITION BY id ORDER BY login_date DESC), login_date) AS ConsecDays 
+            FROM (SELECT DISTINCT * FROM Logins) AS t
+)
+
+SELECT DISTINCT a.id, a.name 
+FROM t1
+JOIN Accounts a ON a.id = t1.id
+GROUP BY a.id, a.name, ConsecDays
+HAVING COUNT(DISTINCT login_date) >= 5
+ORDER BY 1
+
+-- 1811. Find Interview Candidates, https://leetcode.com/problems/find-interview-candidates/
+/* the main logic is similar to 1454, with 1 caveat thatL 
+unlike date, to calculate consective number we use contest_id + rank - 1*/
+
+WITH t1 AS (
+    SELECT u.user_id as user_id
+    FROM Users u 
+    WHERE u.user_id IN (SELECT DISTINCT gold_medal 
+                    FROM Contests 
+                    GROUP BY gold_medal 
+                    HAVING COUNT(contest_id) >= 3)
+), t2 AS (
+    SELECT contest_id, gold_medal AS user_id
+    FROM Contests
+    UNION ALL (SELECT contest_id, silver_medal FROM Contests)
+    UNION ALL (SELECT contest_id, bronze_medal FROM Contests)
+), t3 AS (
+    SELECT user_id, contest_id, (contest_id + DENSE_RANK() OVER (PARTITION BY user_id ORDER BY contest_id DESC) - 1) AS consecContest
+    FROM t2
+    
+), t4 AS (
+    SELECT DISTINCT user_id
+    FROM t3
+    GROUP BY user_id, consecContest
+    HAVING COUNT(DISTINCT contest_id) >= 3
+    UNION (SELECT user_id FROM t1)
+)
+
+SELECT u.name, u.mail
+FROM Users u
+JOIN t4
+ON u.user_id = t4.user_id
