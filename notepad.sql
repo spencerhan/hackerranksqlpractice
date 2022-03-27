@@ -1091,7 +1091,7 @@ ORDER BY 1
 
 -- 1811. Find Interview Candidates, https://leetcode.com/problems/find-interview-candidates/
 /* the main logic is similar to 1454, with 1 caveat thatL 
-unlike date, to calculate consective number we use contest_id + rank - 1*/
+unlike date, to calculate consective number we use contest_id + rank - 1 */
 
 WITH t1 AS (
     SELECT u.user_id as user_id
@@ -1103,7 +1103,7 @@ WITH t1 AS (
 ), t2 AS (
     SELECT contest_id, gold_medal AS user_id
     FROM Contests
-    UNION ALL (SELECT contest_id, silver_medal FROM Contests)
+    UNION ALL (SELECT contest_id, silver_medal FROM Contests) -- this can be replaced with unpivot in sql server
     UNION ALL (SELECT contest_id, bronze_medal FROM Contests)
 ), t3 AS (
     SELECT user_id, contest_id, (contest_id + DENSE_RANK() OVER (PARTITION BY user_id ORDER BY contest_id DESC) - 1) AS consecContest
@@ -1121,3 +1121,108 @@ SELECT u.name, u.mail
 FROM Users u
 JOIN t4
 ON u.user_id = t4.user_id
+
+-- using pivot instead of union
+
+WITH t1 AS (
+    SELECT u.user_id as user_id
+    FROM Users u 
+    WHERE u.user_id IN (SELECT DISTINCT gold_medal 
+                    FROM Contests 
+                    GROUP BY gold_medal 
+                    HAVING COUNT(contest_id) >= 3)
+), t2 AS (  -- this is unique to sql server, using unpivot is actually more tidier than union, because we know have the information of medal type (FOR... IN... section) 
+            SELECT contest_id, user_id
+            FROM (
+                    SELECT contest_id, gold_medal, silver_medal, bronze_medal
+                    FROM Contests
+                 ) c
+        UNPIVOT
+                (user_id FOR medal IN (gold_medal, silver_medal, bronze_medal)) AS pvt
+), t3 AS (
+    SELECT user_id, contest_id, (contest_id + DENSE_RANK() OVER (PARTITION BY user_id ORDER BY contest_id DESC) - 1) AS consecContest
+    FROM t2
+    
+), t4 AS (
+    SELECT DISTINCT user_id
+    FROM t3
+    GROUP BY user_id, consecContest
+    HAVING COUNT(DISTINCT contest_id) >= 3
+    UNION (SELECT user_id FROM t1)
+)
+SELECT u.name, u.mail
+FROM Users u
+JOIN t4
+ON u.user_id = t4.user_id
+
+-- 1934. Confirmation Rate, https://leetcode.com/problems/confirmation-rate/
+/*  */
+ SELECT s.user_id, CASE 
+                    WHEN t3.id is Null THEN 0
+                    ELSE t3.confirmation_rate
+                  END AS confirmation_rate
+FROM Signups s
+LEFT JOIN
+    (SELECT t1.id AS id, ROUND(COUNT(t2.action)*1.00/t1.total_requested, 2) AS confirmation_rate 
+    FROM (SELECT COUNT(action) OVER (PARTITION BY user_id) AS total_requested, user_id AS id, time_stamp 
+          FROM Confirmations) t1
+    JOIN (SELECT * FROM Confirmations WHERE action = 'confirmed') t2
+    ON t1.time_stamp  = t2.time_stamp
+    GROUP BY id, t1.total_requested) t3
+ON s.user_id = t3.id
+
+-- 1867. Orders With Maximum Quantity Above Average, https://leetcode.com/problems/orders-with-maximum-quantity-above-average/
+SELECT order_id
+FROM 
+    (SELECT o.order_id, o.quantity, MAX(t.avg) OVER () as max_avg
+    FROM OrdersDetails o
+    JOIN (
+            SELECT SUM(quantity) * 1.00 / count(DISTINCT product_id) as avg, order_id as id
+            FROM OrdersDetails 
+            GROUP BY order_id) t
+    ON o.order_id = t.id) t1
+GROUP BY order_id, max_avg
+HAVING MAX(quantity) > max_avg
+
+
+
+-- 1270, All People Report to the Given Manager, https://leetcode.com/problems/all-people-report-to-the-given-manager/
+
+/* not right join */
+
+WITH direct AS (
+    SELECT e1.employee_id AS employee_id
+    FROM Employees e
+    JOIN Employees e1
+    ON e.manager_id = e1.manager_id
+    WHERE e.manager_id = 1 
+), direct_exclude_boss AS (
+    SELECT * FROM direct WHERE employee_id <> 1
+), indirect_1 AS (
+    SELECT e2.employee_id AS employee_id
+    FROM direct_exclude_boss
+    JOIN Employees e2 
+    ON direct_exclude_boss.employee_id = e2.manager_id
+), indirect_2 AS (
+    SELECT e3.employee_id AS employee_id
+    FROM indirect_1
+    JOIN Employees e3
+    ON indirect_1.employee_id = e3.manager_id
+), indirect_3 AS (
+    SELECT e3.employee_id AS employee_id
+    FROM indirect_2
+    JOIN Employees e3
+    ON indirect_2.employee_id = e3.manager_id
+)
+SELECT employee_id
+FROM direct_exclude_boss
+UNION (SELECT employee_id FROM indirect_1)
+UNION (SELECT employee_id FROM indirect_2)
+UNION (SELECT employee_id FROM indirect_3)
+
+
+--2020. Number of Accounts That Did Not Stream, https://leetcode.com/problems/number-of-accounts-that-did-not-stream/
+
+SELECT COUNT(DISTINCT account_id) AS accounts_count
+FROM Subscriptions 
+WHERE (YEAR(end_date) = 2021 OR YEAR(start_date) = 2021) AND EXISTS (SELECT 1 FROM Streams WHERE Subscriptions.account_id = Streams.account_id AND YEAR(stream_date) <> 2021)
