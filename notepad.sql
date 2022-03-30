@@ -1,3 +1,25 @@
+/* 
+
+MSSQL pivot syntax https://www.c-sharpcorner.com/UploadFile/f0b2ed/pivot-and-unpovit-in-sql-server/
+
+SELECT <non-pivoted column>,  
+       <list of pivoted column>  
+FROM  
+(<SELECT query  to produces the data>)  
+    AS <alias name>  
+PIVOT  
+(  
+<aggregation function>(<column name>)  
+FOR  
+[<column name that  become column headers>]  
+    IN ( [list of  pivoted columns])  
+  
+) AS <alias name  for  pivot table>  
+
+
+ */
+
+
 -- New Companies solution, https://www.hackerrank.com/challenges/the-company/problem?isFullScreen=true, Advanced Select
 -- main logic: join
 select c.company_code, c.founder, count(distinct l.lead_manager_code), count(distinct s.senior_manager_code), count(distinct m.manager_code), count(distinct e.employee_code)
@@ -1226,3 +1248,24 @@ UNION (SELECT employee_id FROM indirect_3)
 SELECT COUNT(DISTINCT account_id) AS accounts_count
 FROM Subscriptions 
 WHERE (YEAR(end_date) = 2021 OR YEAR(start_date) = 2021) AND EXISTS (SELECT 1 FROM Streams WHERE Subscriptions.account_id = Streams.account_id AND YEAR(stream_date) <> 2021)
+
+-- 1205. Monthly Transactions II, https://leetcode.com/problems/monthly-transactions-ii/
+
+
+WITH t1 AS (
+    SELECT t.id AS id, t.country AS country, t.state AS state, t.amount AS amount, FORMAT(t.trans_date, 'yyyy-MM') AS month
+    FROM Transactions t
+    UNION (SELECT c.trans_id AS id, t2.country, 'chargeback' AS state, t2.amount AS amount, FORMAT(c.trans_date,'yyyy-MM') AS month
+           FROM chargebacks c
+           LEFT JOIN transactions t2
+           ON c.trans_id = t2.id)
+
+)
+SELECT month, country, SUM(CASE WHEN state = 'approved' THEN 1 ELSE 0 END) AS approved_count,
+                       SUM(CASE WHEN state = 'approved' THEN amount ELSE 0 END) AS approved_amount,
+                       SUM(CASE WHEN state = 'chargeback' THEN 1 ELSE 0 END) AS chargeback_count,
+                       SUM(CASE WHEN state = 'chargeback' THEN amount ELSE 0 END) AS chargeback_amount
+FROM t1
+GROUP BY month, country
+HAVING SUM(CASE WHEN state = 'approved' THEN 1 ELSE 0 END) + SUM(CASE WHEN state = 'chargeback' THEN 1 ELSE 0 END) != 0 -- remove the rows for charge back
+
