@@ -1269,3 +1269,19 @@ FROM t1
 GROUP BY month, country
 HAVING SUM(CASE WHEN state = 'approved' THEN 1 ELSE 0 END) + SUM(CASE WHEN state = 'chargeback' THEN 1 ELSE 0 END) != 0 -- remove the rows for charge back
 
+
+-- 1321. Restaurant Growth, https://leetcode.com/problems/restaurant-growth/
+SELECT visited_on,
+    SUM(SUM(amount)) OVER(ORDER BY visited_on ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS amount,
+    ROUND(SUM(SUM(amount)) OVER(ORDER BY visited_on ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)/7.0, 2) AS average_amount
+FROM Customer
+GROUP BY visited_on
+ORDER BY visited_on
+OFFSET 6 ROWS
+
+-- 1285. Find the Start and End Number of Continuous Ranges, https://leetcode.com/problems/find-the-start-and-end-number-of-continuous-ranges/
+
+SELECT DISTINCT MIN(log_id) OVER (PARTITION BY sum_rnk) AS start_id, MAX(log_id) OVER (PARTITION BY sum_rnk) AS end_id
+    FROM
+        (SELECT log_id, log_id + RANK() OVER (ORDER BY log_id DESC) AS sum_rnk
+        FROM Logs) t1 
