@@ -1305,4 +1305,16 @@ WITH t1 AS (
 SELECT DISTINCT page_id AS recommended_page
 FROM Likes l 
 WHERE user_id IN (SELECT t3.user2_id FROM t3) AND page_id NOT IN (SELECT page_id FROM Likes WHERE user_id = 1) -- use IN () and NOT () from the Likes table directly, do not join t3 and the Likes table.
---1341. Movie Rating ,https://leetcode.com/problems/movie-rating/
+
+--1907. Count Salary Categories, https://leetcode.com/problems/count-salary-categories/
+/* a way to keep 0 (there is no way to keep the 0 row when using group by*/
+SELECT
+	'Low Salary' AS category, SUM(CASE WHEN income < 20000 THEN 1 ELSE 0 END) AS accounts_count FROM Accounts
+UNION 
+SELECT
+	'Average Salary' AS category, SUM(CASE WHEN income >= 20000 AND income <= 50000 THEN 1 ELSE 0 END) AS accounts_count FROM Accounts
+UNION
+SELECT
+	'High Salary' AS category, SUM(CASE WHEN income > 50000 THEN 1 ELSE 0 END) AS accounts_count FROM Accounts
+
+-- 1393. Capital Gain/Loss, https://leetcode.com/problems/capital-gainloss/
