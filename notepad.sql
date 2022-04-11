@@ -1285,3 +1285,23 @@ SELECT DISTINCT MIN(log_id) OVER (PARTITION BY sum_rnk) AS start_id, MAX(log_id)
     FROM
         (SELECT log_id, log_id + RANK() OVER (ORDER BY log_id DESC) AS sum_rnk
         FROM Logs) t1 
+WITH t1 AS (
+    SELECT user1_id, user2_id
+    FROM Friendship f
+    WHERE user1_id = 1
+), t2 AS (
+    SELECT user1_id, user2_id
+    FROM Friendship f
+    WHERE user2_id = 1
+), t3 AS (
+    SELECT user1_id, user2_id 
+    FROM t1
+    UNION 
+         (SELECT user2_id, user1_id FROM t2)
+)
+
+-- 1264. Page Recommendations, https://leetcode.com/problems/page-recommendations/
+
+SELECT DISTINCT page_id AS recommended_page
+FROM Likes l 
+WHERE user_id IN (SELECT t3.user2_id FROM t3) AND page_id NOT IN (SELECT page_id FROM Likes WHERE user_id = 1) -- use IN () and NOT () from the Likes table directly, do not join t3 and the Likes table.
