@@ -1318,3 +1318,24 @@ SELECT
 	'High Salary' AS category, SUM(CASE WHEN income > 50000 THEN 1 ELSE 0 END) AS accounts_count FROM Accounts
 
 -- 1393. Capital Gain/Loss, https://leetcode.com/problems/capital-gainloss/
+/*
+practicing groupby with rollup
+*/
+SELECT stock_name, capital_gain_loss
+FROM
+    (SELECT stock_name, operation , sum(price) as capital_gain_loss
+    FROM 
+        (SELECT stock_name, operation, CASE 
+                            WHEN operation = 'Buy' THEN price * (-1)
+                            WHEN operation = 'Sell' THEN price
+                        END AS price
+        FROM Stocks) t1
+    GROUP BY ROLLUP (stock_name, operation)
+    ) t2 
+WHERE operation IS NULL AND stock_name IS NOT NULL
+
+-- 1308. Running Total for Different Genders, https://leetcode.com/problems/running-total-for-different-genders/
+/* 1. use unbounded preceding not 1 row; 2,the difference between PARTITION BY and ORDER BY */
+SELECT gender, day, SUM(score_points) OVER (PARTITION BY gender ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS total
+FROM Scores
+ORDER BY gender, day
