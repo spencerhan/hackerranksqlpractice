@@ -1285,6 +1285,7 @@ SELECT DISTINCT MIN(log_id) OVER (PARTITION BY sum_rnk) AS start_id, MAX(log_id)
     FROM
         (SELECT log_id, log_id + RANK() OVER (ORDER BY log_id DESC) AS sum_rnk
         FROM Logs) t1 
+
 WITH t1 AS (
     SELECT user1_id, user2_id
     FROM Friendship f
@@ -1339,3 +1340,32 @@ WHERE operation IS NULL AND stock_name IS NOT NULL
 SELECT gender, day, SUM(score_points) OVER (PARTITION BY gender ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS total
 FROM Scores
 ORDER BY gender, day
+
+
+--1398. Customers Who Bought Products A and B but Not C，https://leetcode.com/problems/customers-who-bought-products-a-and-b-but-not-c/
+SELECT customer_id, customer_name
+FROM Customers c
+WHERE EXISTS 
+    (SELECT customer_id
+    FROM Orders o
+    WHERE c.customer_id = o.customer_id AND o.product_name = 'A') AND EXISTS (SELECT customer_id
+    FROM Orders o
+    WHERE c.customer_id = o.customer_id AND o.product_name = 'B') AND NOT EXISTS (SELECT customer_id
+    FROM Orders o
+    WHERE c.customer_id = o.customer_id AND o.product_name = 'C')
+ORDER BY customer_id
+
+-- 1445. Apples & Oranges， https://leetcode.com/problems/apples-oranges/
+
+SELECT sale_date, apple - orange AS diff
+FROM 
+    (SELECT sale_date, [apples] AS apple, [oranges] AS orange
+    FROM (
+        SELECT * FROM Sales
+    ) AS source_table
+    PIVOT
+    (
+        SUM(sold_num) FOR fruit IN ([apples], [oranges])
+    ) AS pvt_table) t
+ORDER BY sale_date
+
