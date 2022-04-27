@@ -1369,3 +1369,57 @@ FROM
     ) AS pvt_table) t
 ORDER BY sale_date
 
+
+-- 2084. Drop Type 1 Orders for Customers With Type 0 Orders, https://leetcode.com/problems/drop-type-1-orders-for-customers-with-type-0-orders/
+/* This works but really slow */
+SELECT order_id, customer_id, order_type
+FROM Orders o
+WHERE order_type = 0
+UNION
+
+SELECT order_id, customer_id, order_type
+FROM
+    (   
+        SELECT *
+        FROM
+            (SELECT * FROM Orders o
+            WHERE order_type = 1) AS t 
+        WHERE NOT EXISTS (SELECT * FROM Orders o WHERE o.order_type = 0 AND t.customer_id = o.customer_id)
+    ) AS t1
+
+
+
+/* NOT IN a lot faster */
+
+
+SELECT order_id, customer_id, order_type
+FROM Orders o
+WHERE order_type = 0
+UNION
+
+SELECT order_id, customer_id, order_type
+FROM
+    (   
+        SELECT *
+        FROM
+            (SELECT * FROM Orders o
+            WHERE order_type = 1) AS t 
+        WHERE t.customer_id NOT IN (SELECT customer_id FROM Orders o WHERE o.order_type = 0)
+    ) AS t2
+    
+
+-- 1783. Grand Slam Titles, https://leetcode.com/problems/grand-slam-titles/\
+/* sql unpivot function. union should also do the trick */
+
+SELECT p.player_id, p.player_name, count(tournament) AS grand_slams_count
+FROM 
+Players p
+JOIN
+     (SELECT year, Wimbledon , Fr_open , US_open , Au_open
+       FROM Championships) p  
+    UNPIVOT  
+       (champion FOR tournament IN   
+          (Wimbledon , Fr_open , US_open , Au_open)  
+    ) AS unpvt
+ON p.player_id = unpvt.champion
+GROUP BY p.player_id, p.player_name
