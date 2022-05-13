@@ -1423,3 +1423,21 @@ JOIN
     ) AS unpvt
 ON p.player_id = unpvt.champion
 GROUP BY p.player_id, p.player_name
+
+
+-- 1699. Number of Calls Between Two Persons, https://leetcode.com/problems/number-of-calls-between-two-persons/
+
+SELECT person1, person2, COUNT(1) AS call_count, SUM(duration) AS total_duration
+FROM 
+    (SELECT c1.from_id AS person1, c1.to_id AS person2, c1.duration AS duration
+    FROM Calls c1
+    UNION ALL
+        (SELECT c2.to_id, c2.from_id, c2.duration FROM Calls c2)) AS t
+GROUP BY person1, person2
+HAVING person1 < person2
+
+-- 2066. Account Balance,  https://leetcode.com/problems/account-balance/
+
+SELECT  account_id, day, SUM(
+            IIF("type" = 'Withdraw', amount * -1, amount)) OVER (PARTITION BY account_id ORDER BY day) AS balance
+FROM Transactions
