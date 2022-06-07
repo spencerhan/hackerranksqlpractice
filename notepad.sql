@@ -1440,4 +1440,40 @@ HAVING person1 < person2
 
 SELECT  account_id, day, SUM(
             IIF("type" = 'Withdraw', amount * -1, amount)) OVER (PARTITION BY account_id ORDER BY day) AS balance
-FROM Transactions
+FROM Transactions;
+
+-- 1341. Movie Rating, https://leetcode.com/problems/movie-rating/
+/* Feels a bit wordy */
+WITH t1 AS (
+    SELECT COUNT(movie_id) AS rating_count, user_id
+    FROM MovieRating
+    GROUP BY user_id 
+), t2 AS (
+    SELECT u.name AS name, t1.rating_count, ROW_NUMBER() OVER (ORDER BY name) AS rn
+    FROM Users u
+    JOIN t1
+    ON u.user_id = t1.user_id
+    WHERE t1.rating_count = (SELECT max(rating_count) FROM t1) 
+), t3 AS (
+    SELECT name AS results
+    FROM t2
+    WHERE rn = 1
+), t4 AS (
+    SELECT movie_id, AVG(rating * 1.0) AS avg_rating, MONTH(created_at) AS month
+    FROM MovieRating
+    GROUP BY movie_id, MONTH(created_at)
+    HAVING MONTH(created_at) = 2
+), t5 AS (
+    SELECT m.title, ROW_NUMBER() OVER (ORDER BY t4.avg_rating desc, m.title) as rn
+    FROM Movies m
+    JOIN t4
+    ON m.movie_id = t4.movie_id
+), t6 AS (
+    SELECT t5.title AS results
+    FROM t5
+    WHERE t5.rn = 1
+)
+SELECT * FROM t3
+UNION ALL
+SELECT * FROM t6
+
