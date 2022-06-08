@@ -1796,3 +1796,37 @@ ON t1.customer_name = contacts_cnt.customer_name
 LEFT JOIN trusted_contacts_cnt
 ON contacts_cnt.customer_name = trusted_contacts_cnt.customer_name
 ORDER BY t1.invoice_id ASC
+
+--1440. Evaluate Boolean Expression, https://leetcode.com/problems/evaluate-boolean-expression/
+WITH left_operand AS (
+
+    SELECT v.value AS left_value,e.left_operand, e.operator, e.right_operand
+    FROM Variables v
+    JOIN Expressions e
+    ON v.name = e.left_operand
+), right_operand AS (
+    SELECT l.left_value, l.left_operand, l.operator, v.value AS right_value, l.right_operand
+    FROM Variables v
+    JOIN left_operand l
+    ON v.name = l.right_operand
+
+)
+SELECT left_operand AS left_operand, operator AS operator, right_operand AS right_operand, CASE 
+                                                                                                    WHEN operator = '>' THEN IIF(left_value > right_value, 'true', 'false')
+                                                                                                    WHEN operator = '<' THEN IIF(left_value < right_value, 'true', 'false')
+                                                                                                    WHEN operator = '=' THEN IIF(left_value = right_value, 'true', 'false')
+                                                                                                END AS value
+FROM right_operand 
+
+
+/* faster without using cte */
+
+SELECT e.left_operand, e.operator,e.right_operand
+	,  CASE e.operator 
+					WHEN  '>' THEN IIF(v_left.value  > v_right.value ,'true','false' )
+					WHEN  '<' THEN  IIF(v_left.value  < v_right.value, 'true', 'false')
+					WHEN  '=' THEN  IIF(v_left.value  = v_right.value,'true','false')
+			   END AS value
+FROM Expressions e
+JOIN Variables AS v_left ON e.left_operand = v_left.name
+JOIN Variables AS v_right ON e.right_operand = v_right.name
