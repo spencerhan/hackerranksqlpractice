@@ -74,13 +74,15 @@ FROM
     (SELECT Start_Date, ROW_NUMBER() OVER (ORDER BY Start_Date ASC) as rn_start
     FROM Projects
     WHERE Start_Date 
-    NOT IN (SELECT End_Date FROM Projects)) AS t1
-JOIN 
+    NOT IN (SELECT End_Date
+    FROM Projects)) AS t1
+    JOIN
     (SELECT End_Date, ROW_NUMBER() OVER (ORDER BY End_Date ASC) as rn_end
     FROM projects
     WHERE End_Date 
-    NOT IN (SELECT Start_Date From Projects)) AS t2 
-ON t1.rn_start = t2.rn_end
+    NOT IN (SELECT Start_Date
+    From Projects)) AS t2
+    ON t1.rn_start = t2.rn_end
 ORDER BY DATEDIFF(day,t1.Start_date, t2.End_Date) ASC, t1.Start_Date;
 
 
@@ -209,7 +211,7 @@ ORDER BY COUNT(h.hacker_id) desc, h.hacker_id asc;
 
 SELECT id, age, coins_needed, power
 FROM (SELECT w.id AS id, wp.age AS age, w.coins_needed AS coins_needed, MIN(w.coins_needed) OVER (PARTITION BY w.power, wp.age) AS min_coins, w.power as power
-    FROM Wands AS w INNER JOIN Wands_Property AS wp  ON w.code=wp.code
+    FROM Wands AS w INNER JOIN Wands_Property AS wp ON w.code=wp.code
     WHERE wp.is_evil=0) AS t
 WHERE min_coins=coins_needed
 ORDER BY power DESC, age DESC;
@@ -234,19 +236,21 @@ FROM Hackers as h
     ON h.hacker_id = c.hacker_id
 GROUP BY h.hacker_id, h.name
 HAVING COUNT(challenge_id) = (SELECT MAX(max_cnt)
-                                FROM
-                                    (SELECT COUNT(challenge_id) AS max_cnt, hacker_id
-                                    FROM challenges
-                                    GROUP BY (hacker_id)) AS t1) -- here we use sub queries to find out what's the maximum number of challenges created by each students, and then finding out whether the aggregated amount of challenges equal to that maximum. 
-       OR COUNT(c.hacker_id) IN (SELECT chg_cnt
-                                 FROM
-                                    (SELECT COUNT(hacker_id) AS chg_cnt
-                                    FROM Challenges
-                                    GROUP BY hacker_id) AS t2
-                                GROUP BY chg_cnt
-                                HAVING count(chg_cnt) = 1
-                                )  -- here we solve the second caveat by checking whether a student is in a list of students that create a unique amount of challenges
-ORDER BY COUNT(c.challenge_id) DESC, h.hacker_id; -- this order solves the first and second requirement. 
+    FROM
+        (SELECT COUNT(challenge_id) AS max_cnt, hacker_id
+        FROM challenges
+        GROUP BY (hacker_id)) AS t1) -- here we use sub queries to find out what's the maximum number of challenges created by each students, and then finding out whether the aggregated amount of challenges equal to that maximum. 
+    OR COUNT(c.hacker_id) IN (SELECT chg_cnt
+    FROM
+        (SELECT COUNT(hacker_id) AS chg_cnt
+        FROM Challenges
+        GROUP BY hacker_id) AS t2
+    GROUP BY chg_cnt
+    HAVING count(chg_cnt) = 1
+                                )
+-- here we solve the second caveat by checking whether a student is in a list of students that create a unique amount of challenges
+ORDER BY COUNT(c.challenge_id) DESC, h.hacker_id;
+-- this order solves the first and second requirement. 
 
 
 -- Contest Leaderboard, https://www.hackerrank.com/challenges/contest-leaderboard/problem?h_r=next-challenge&h_v=zen&isFullScreen=true, Basic Join 
@@ -256,23 +260,26 @@ ORDER BY COUNT(c.challenge_id) DESC, h.hacker_id; -- this order solves the first
                3. lastly use the SUM aggregation to calculate the total. 
                * using windown function with ROW number based on score order for each student and challenge combination should also do the trick.
 */
-DECLARE @t1 TABLE (hacker_id int, score int);
-DECLARE @t2 TABLE (hacker_id int, max_score int, challenge_id int);
+DECLARE @t1 TABLE (hacker_id int,
+    score int);
+DECLARE @t2 TABLE (hacker_id int,
+    max_score int,
+    challenge_id int);
 SELECT t2.hacker_id, h.name, SUM(t2.max_score) as score
 FROM Hackers as h
-JOIN
+    JOIN
     (SELECT s.hacker_id, MAX(score) as max_score, s.challenge_id
     FROM Submissions s
-    JOIN
+        JOIN
         (SELECT hacker_id
         FROM Submissions
         GROUP BY hacker_id
         HAVING SUM(score) > 0
         ) AS t1 -- excluding any students who score 0.
-    ON s.hacker_id = t1.hacker_id
+        ON s.hacker_id = t1.hacker_id
     GROUP BY s.hacker_id, s.challenge_id -- getting max score for each challenge over multiple submissions 
-    ) AS t2 
-ON t2.hacker_id = h.hacker_id
+    ) AS t2
+    ON t2.hacker_id = h.hacker_id
 GROUP BY t2.hacker_id, h.name
 ORDER BY score DESC, t2.hacker_id ASC;
 
@@ -282,17 +289,17 @@ ORDER BY score DESC, t2.hacker_id ASC;
 ---Step 1: Friend salary
 SELECT s.id AS ID, s.Name AS name, p.Salary AS fSalary
 FROM Students s
-JOIN Friend f
-ON s.id = f.id
-JOIN Packages p 
-ON f.Friend_ID = p.ID
+    JOIN Friend f
+    ON s.id = f.id
+    JOIN Packages p
+    ON f.Friend_ID = p.ID
 ;
 
 ---Step2: OWN Salary
 SELECT s.id AS ID, s.Name AS name, p.Salary AS sSalary
 FROM Students s
-JOIN Packages p
-ON s.ID = p.ID;
+    JOIN Packages p
+    ON s.ID = p.ID;
 
 ---Together 
 SELECT t1.name
@@ -312,17 +319,18 @@ ORDER BY t2.fSalary;
 
 
 -- Symmetric Pairs, https://www.hackerrank.com/challenges/symmetric-pairs/problem?h_r=next-challenge&h_v=zen, Advanced Join
- /* Main logic: Self join, removing duplicate is the key */
+/* Main logic: Self join, removing duplicate is the key */
 
 SELECT t1.X, t1.Y
 FROM Functions t1
-JOIN Functions t2
-ON t1.X = t2.Y AND t1.Y = t2.X -- it contains duplicate also, the matching condition, we need to remove duplicates in later process. 
+    JOIN Functions t2
+    ON t1.X = t2.Y AND t1.Y = t2.X
+-- it contains duplicate also, the matching condition, we need to remove duplicates in later process. 
 GROUP BY t1.X, t1.Y
-HAVING COUNT(t1.X) > 1 OR t1.X < t1.Y 
+HAVING COUNT(t1.X) > 1 OR t1.X < t1.Y
 -- After group by we will have duplicated records, for example (3,24) appears once is not a symmetric, (3,24) appears twice will be a symmetric pari; 
 -- secondly (3,24) is the same as (24,3), therefore we only need to keep one pair.
-ORDER BY t1.X ASC; 
+ORDER BY t1.X ASC;
 
 -- Average Population, https://www.hackerrank.com/challenges/average-population/problem?isFullScreen=true&h_r=next-challenge&h_v=zen, Aggregation
 /* main logic: FLOOR, CEILING, ROUND */
@@ -337,72 +345,94 @@ https://medium.com/@smohajer85/sql-challenge-interviews-a50d205d4f3a, this guy a
 
 SELECT Contests.contest_id, hacker_id, name, SUM(totsub), SUM(totaccsub), SUM(totview), SUM(totuniquview)
 FROM Contests
-JOIN Colleges
-ON Contests.contest_id = Colleges.contest_id
-JOIN Challenges
-ON Colleges.college_id  = Challenges.college_id  
-LEFT JOIN
+    JOIN Colleges
+    ON Contests.contest_id = Colleges.contest_id
+    JOIN Challenges
+    ON Colleges.college_id  = Challenges.college_id
+    LEFT JOIN
     (SELECT Challenges.challenge_id, SUM(total_submissions) AS totsub, SUM(total_accepted_submissions) AS totaccsub
     FROM Submission_Stats
-    JOIN Challenges
-        ON Submission_Stats.challenge_id  = Challenges.challenge_id  
+        JOIN Challenges
+        ON Submission_Stats.challenge_id  = Challenges.challenge_id
     GROUP BY Challenges.challenge_id) AS t1
-ON Challenges.challenge_id = t1.challenge_id
-LEFT JOIN
+    ON Challenges.challenge_id = t1.challenge_id
+    LEFT JOIN
     (SELECT Challenges.challenge_id, SUM(total_views) AS totview, SUM(total_unique_views) AS totuniquview
     FROM View_Stats
-    JOIN Challenges
+        JOIN Challenges
         ON View_Stats.challenge_id = Challenges.challenge_id
     GROUP BY Challenges.challenge_id) AS t2
-ON Challenges.challenge_id = t2.challenge_id
+    ON Challenges.challenge_id = t2.challenge_id
 GROUP BY Contests.contest_id, name, hacker_id
 HAVING SUM(totsub) + SUM(totaccsub) + SUM(totview) + SUM(totuniquview) != 0
 ORDER BY Contests.contest_id;
 
 
-WITH 
-t1 AS (SELECT Contests.contest_id, hacker_id, name, Colleges.college_id
-            FROM Contests
+WITH
+    t1
+    AS
+    (
+        SELECT Contests.contest_id, hacker_id, name, Colleges.college_id
+        FROM Contests
             JOIN Colleges
             ON Contests.contest_id = Colleges.contest_id
-), 
-t2 AS (SELECT t1.contest_id, hacker_id, name, Challenges.challenge_id
-       FROM t1
-       JOIN Challenges
-       ON t1.college_id = Challenges.college_id
-), 
-t3 AS (SELECT Challenges.challenge_id, SUM(total_views) AS totview, SUM(total_unique_views) AS totuniquview 
-       FROM Challenges
-       JOIN View_Stats
-       ON Challenges.challenge_id = View_Stats.challenge_id
-       GROUP BY Challenges.challenge_id
-),
-t4 AS (SELECT Challenges.challenge_id, SUM(total_submissions) AS totsub, SUM(total_accepted_submissions) AS totaccsub 
-       FROM Challenges
-       JOIN Submission_Stats
-       ON Challenges.challenge_id = Submission_Stats.challenge_id
-       GROUP BY Challenges.challenge_id
-),
-t5 AS (SELECT t2.contest_id, hacker_id, name, t2.challenge_id, totvie, totuniquview 
-       FROM t2
-       LEFT JOIN t3
-       ON t2.challenge_id = t3.challenge_id
+    ),
+    t2
+    AS
+    (
+        SELECT t1.contest_id, hacker_id, name, Challenges.challenge_id
+        FROM t1
+            JOIN Challenges
+            ON t1.college_id = Challenges.college_id
+    ),
+    t3
+    AS
+    (
+        SELECT Challenges.challenge_id, SUM(total_views) AS totview, SUM(total_unique_views) AS totuniquview
+        FROM Challenges
+            JOIN View_Stats
+            ON Challenges.challenge_id = View_Stats.challenge_id
+        GROUP BY Challenges.challenge_id
+    ),
+    t4
+    AS
+    (
+        SELECT Challenges.challenge_id, SUM(total_submissions) AS totsub, SUM(total_accepted_submissions) AS totaccsub
+        FROM Challenges
+            JOIN Submission_Stats
+            ON Challenges.challenge_id = Submission_Stats.challenge_id
+        GROUP BY Challenges.challenge_id
+    ),
+    t5
+    AS
+    (
+        SELECT t2.contest_id, hacker_id, name, t2.challenge_id, totvie, totuniquview
+        FROM t2
+            LEFT JOIN t3
+            ON t2.challenge_id = t3.challenge_id
 
-),
-t6 AS (
-       SELECT t5.contest_id, hacker_id, name, t5.challenge_id, totsub, totaccsub, totview, totuniquview
-       FROM t5
-       LEFT JOIN t4
-       ON t5.challenge_id = t4.challenge_id
-),  -- select * from t6 (left join unmatched will be null in view and submission stats columns), we need to set nulls to 0
-t7 AS (
-    SELECT contest_id, hacker_id, name, COALESCE(totsub,0) AS totsub, COALESCE(totaccsub,0) AS totaccsub, COALESCE(totview,0) AS totview, COALESCE(totuniquview,0) AS totuniquview
-    FROM t6
-), 
-t8 AS (
-    SELECT *, total = SUM(totsub, totaccsub, totview, totuniquview)
-    FROM t7
-)
+    ),
+    t6
+    AS
+    (
+        SELECT t5.contest_id, hacker_id, name, t5.challenge_id, totsub, totaccsub, totview, totuniquview
+        FROM t5
+            LEFT JOIN t4
+            ON t5.challenge_id = t4.challenge_id
+    ),
+    -- select * from t6 (left join unmatched will be null in view and submission stats columns), we need to set nulls to 0
+    t7
+    AS
+    (
+        SELECT contest_id, hacker_id, name, COALESCE(totsub,0) AS totsub, COALESCE(totaccsub,0) AS totaccsub, COALESCE(totview,0) AS totview, COALESCE(totuniquview,0) AS totuniquview
+        FROM t6
+    ),
+    t8
+    AS
+    (
+        SELECT *, total = SUM(totsub, totaccsub, totview, totuniquview)
+        FROM t7
+    )
 SELECT contest_id, hacker_id, name, SUM(totsub), SUM(totaccsub), SUM(totview), SUM(totuniquview)
 FROM t8
 WHERE total != 0
@@ -416,17 +446,18 @@ SELECT CAST(CEILING(AVG(CAST(Salary AS FLOAT)) - AVG(CAST(REPLACE(CAST(Salary AS
 FROM EMPLOYEES;
 
 -- Top Earners, https://www.hackerrank.com/challenges/earnings-of-employees/problem, Aggregation
-SELECT TOP 1 salary*months, COUNT(*) 
-FROM Employee 
-GROUP BY (salary * months) 
+SELECT TOP 1
+    salary*months, COUNT(*)
+FROM Employee
+GROUP BY (salary * months)
 ORDER BY (salary * months) DESC;
 -- window funtion version.
 SELECT topearning, count(name)
 FROM (SELECT salary * months as topearning, name, dense_rank() OVER (ORDER BY salary * months DESC) as rank
-FROM Employee
+    FROM Employee
 ) t1
 WHERE t1.rank = 1
-GROUP BY topearning; 
+GROUP BY topearning;
 
 -- Weather Observation Station 2, https://www.hackerrank.com/challenges/weather-observation-station-2/problem?isFullScreen=true, Aggregation
 SELECT CAST(ROUND(SUM(LAT_N),2) AS DECIMAL(9,2)), CAST(ROUND(SUM(LONG_W),2) AS DECIMAL(9,2))
@@ -442,26 +473,34 @@ WHERE LAT_N > 38.7880 AND LAT_N < 137.2345;
 
 -- Second Highest Salary, https://leetcode.com/problems/second-highest-salary
 /* main logic, window function to get rank */
-IF (SELECT COUNT(DISTINCT rank) FROM (SELECT dense_rank() OVER (ORDER BY Salary desc) AS rank FROM Employee) t) < 2 
-    SELECT TOP 1 null as SecondHighestSalary FROM Employee -- top 1 to get rid of duplicates
+IF (SELECT COUNT(DISTINCT rank)
+FROM (SELECT dense_rank() OVER (ORDER BY Salary desc) AS rank
+    FROM Employee) t) < 2 
+    SELECT TOP 1
+    null as SecondHighestSalary
+FROM Employee -- top 1 to get rid of duplicates
 ELSE
-SELECT TOP 1 e.Salary as SecondHighestSalary -- top 1 to get rid of duplicates
+SELECT TOP 1
+    e.Salary as SecondHighestSalary
+-- top 1 to get rid of duplicates
 FROM Employee e
-JOIN
-(SELECT Salary, dense_rank() OVER (ORDER BY salary desc) AS rank
-FROM Employee) t
-ON e.Salary = t.Salary
+    JOIN
+    (SELECT Salary, dense_rank() OVER (ORDER BY salary desc) AS rank
+    FROM Employee) t
+    ON e.Salary = t.Salary
 WHERE t.rank = 2;
 
 -- should be a better way of doing this. faster than 46% queries. 
 DECLARE @count int;
-SET @count = (SELECT COUNT(salary) FROM Employee);
+SET @count = (SELECT COUNT(salary)
+FROM Employee);
 IF @count < 2
-    SELECT 'null' as SecondHighestSalary FROM Employee
+    SELECT 'null' as SecondHighestSalary
+FROM Employee
 ELSE 
     SELECT DISTINCT salary as SecondHighestSalary
-    FROM Employee
-    ORDER BY Salary DESC
+FROM Employee
+ORDER BY Salary DESC
     OFFSET 1 ROWS
     FETCH NEXT 1 ROW ONLY;
 
@@ -474,12 +513,13 @@ BEGIN
     RETURN (
         /* Write your T-SQL query statement below. */
        SELECT TOP 1
-        Salary AS getNthHighestSalary -- top 1 to remove duplicates.
-       FROM
-            (SELECT Salary, dense_rank() OVER (ORDER BY Salary desc) AS srank
-            FROM Employee
+        Salary AS getNthHighestSalary
+    -- top 1 to remove duplicates.
+    FROM
+        (SELECT Salary, dense_rank() OVER (ORDER BY Salary desc) AS srank
+        FROM Employee
             ) t
-       WHERE srank = @N
+    WHERE srank = @N
     );
 END
 
@@ -495,25 +535,28 @@ FROM Scores;
 -- 1. Interesting comparison, when use group by, this obvisouly will collapse the groups, which is simply gives the rank within the dataset.
 SELECT b.score, count(distinct a.Score) as rank
 FROM Scores b
-JOIN Scores a
-ON b.score<=a.score
+    JOIN Scores a
+    ON b.score<=a.score
 group by b.score
 order by 1 desc;
 
 -- 2. Alternative way is to use join within the columns to avoid aggregate entire ouput with group by clause. 
 -- this is fater than 87% queries. 
-SELECT 
-    b.Score, 
-	(SELECT COUNT(DISTINCT a.Score) -- this is actually the rank.
-    FROM Scores a WHERE b.Score <= a.Score) as 'rank'
-FROM Scores b ORDER BY 'rank'
+SELECT
+    b.Score,
+    (SELECT COUNT(DISTINCT a.Score)
+    -- this is actually the rank.
+    FROM Scores a
+    WHERE b.Score <= a.Score) as 'rank'
+FROM Scores b
+ORDER BY 'rank'
 
 
 -- Game Play Analysis III, https://leetcode.com/problems/game-play-analysis-iii/
 /* main logic: accumulative sum (not rolling sum, otherwise use LAG() */
 
 SELECT player_id, event_date,
-SUM(games_played) OVER (PARTITION BY player_id ORDER BY event_date) as games_played_so_far
+    SUM(games_played) OVER (PARTITION BY player_id ORDER BY event_date) as games_played_so_far
 FROM Activity
 ;
 -- solution 1: window function with SUM() faster than 85% queries
@@ -530,7 +573,8 @@ ORDER BY b.player_id;
 
 -- Consecutive Number, https://leetcode.com/problems/consecutive-numbers/submissions/  
 
-SELECT DISTINCT t1.ConsecutiveNums -- distinct is needed to remove duplicates
+SELECT DISTINCT t1.ConsecutiveNums
+-- distinct is needed to remove duplicates
 FROM
     (SELECT
         (CASE 
@@ -543,7 +587,7 @@ WHERE  t1.ConsecutiveNums  IS NOT NULL;
 
 SELECT DISTINCT t1.num as ConsecutiveNums
 FROM (SELECT num, LEAD(num,1,0) OVER (ORDER BY id DESC) as next_num, LEAD(num,2,0) OVER (ORDER BY id DESC) as next_next_num
-      FROM Logs
+    FROM Logs
      ) t1
 WHERE t1.num = t1.next_num AND t1.num = t1.next_next_num;
 
@@ -552,20 +596,21 @@ WHERE t1.num = t1.next_num AND t1.num = t1.next_next_num;
 -- the follwing two queries works the same, notice the difference in joining condition and where clause. 
 SELECT DISTINCT t1.num as ConsecutiveNums
 FROM Logs t1
-JOIN Logs t2
-ON t1.id = t2.id - 1 -- join on the next consective number. 
-JOIN Logs t3
-ON t1.id = t3.id - 2 -- join on the next next consective number  (this is where the consective from)
+    JOIN Logs t2
+    ON t1.id = t2.id - 1 -- join on the next consective number. 
+    JOIN Logs t3
+    ON t1.id = t3.id - 2
+-- join on the next next consective number  (this is where the consective from)
 WHERE t1.num = t2.num AND t1.num = t3.num;
 -- this only faster than 47.43% queries, I guess there are two full joins here.
 
 
 SELECT DISTINCT t1.num as ConsecutiveNums
 FROM Logs t1
-JOIN Logs t2
-ON t1.id = t2.id - 1 
-JOIN Logs t3
-ON t2.id = t3.id - 1 
+    JOIN Logs t2
+    ON t1.id = t2.id - 1
+    JOIN Logs t3
+    ON t2.id = t3.id - 1
 WHERE t1.num = t2.num AND t1.num = t3.num;
 -- faster than 95.20% queries,  the second join is built on the first join where lots of duplicated records has been filtered out. 
 
@@ -574,31 +619,37 @@ WHERE t1.num = t2.num AND t1.num = t3.num;
 
 SELECT p.firstName, p.lastName, a.city, a.state
 FROM PERSON p
-LEFT JOIN ADDRESS a
-ON p.personId = a.personId
+    LEFT JOIN ADDRESS a
+    ON p.personId = a.personId
 
 
 -- Department Highest Salary, https://leetcode.com/problems/department-highest-salary/
 /* Highest, top? rank? max? */
 SELECT d.name as Department, t.name as Employee, t.salary as Salary
 FROM
-(SELECT * , rank() OVER (PARTITION BY departmentId ORDER BY salary DESC) ranking
-FROM Employee) t
-JOIN Department d
-ON t.departmentId = d.id
+    (SELECT * , rank() OVER (PARTITION BY departmentId ORDER BY salary DESC) ranking
+    FROM Employee) t
+    JOIN Department d
+    ON t.departmentId = d.id
 WHERE t.ranking = 1;
 
 -- faster than 36.44% queries. 
 
-WITH t1 AS (SELECT d.id as departmentId, d.name as Department, max(salary) as max_salary
-FROM Employee e1
-JOIN Department d
-ON d.id = e1.departmentId
-GROUP BY d.id, d.name) -- the key things is to aggregate on the joined table column instead of own column
+WITH
+    t1
+    AS
+    (
+        SELECT d.id as departmentId, d.name as Department, max(salary) as max_salary
+        FROM Employee e1
+            JOIN Department d
+            ON d.id = e1.departmentId
+        GROUP BY d.id, d.name
+    )
+-- the key things is to aggregate on the joined table column instead of own column
 SELECT t1.Department, e2.name as Employee, t1.max_salary as Salary
 FROM t1
-JOIN Employee e2
-ON e2.departmentId = t1.departmentId AND e2.salary = t1.max_salary;
+    JOIN Employee e2
+    ON e2.departmentId = t1.departmentId AND e2.salary = t1.max_salary;
 
 -- CTE implementation, faster than 68.55% solution. 
 -- there are might be a way to use TOP 1 with order to get rank, but I have not find a way to do this. 
@@ -610,30 +661,40 @@ alternatives DATEDIFF(day/month/year, ),
 (WINDOW function might work in this case as well) */
 
 
-WITH c1 AS (
-SELECT COUNT(DISTINCT a1.player_id) as count
-FROM Activity a1
-JOIN ACtivity a2
-ON a1.player_id = a2.player_id AND a1.event_date = DATEADD(day, 1, a2.event_date)
-) 
-SELECT ROUND(c1.count * 1.00/(SELECT COUNT(DISTINCT player_id) FROM Activity),2) AS fraction
+WITH
+    c1
+    AS
+    (
+        SELECT COUNT(DISTINCT a1.player_id) as count
+        FROM Activity a1
+            JOIN ACtivity a2
+            ON a1.player_id = a2.player_id AND a1.event_date = DATEADD(day, 1, a2.event_date)
+    )
+SELECT ROUND(c1.count * 1.00/(SELECT COUNT(DISTINCT player_id)
+    FROM Activity),2) AS fraction
 FROM c1;
 
 -- this is an wrong solution, it does not take into account that the consecutive login has to occur after the first login. 
 
-WITH login_after_first_time AS (
-    SELECT player_id, DATEADD(day, 1, min(event_date)) as consecutive_login
-    FROM Activity 
-    GROUP BY player_id
-),
-player_count AS (
-    SELECT COUNT(DISTINCT(a1.player_id)) AS count
-    FROM Activity a1
-    JOIN login_after_first_time
-    ON login_after_first_time.player_id = a1.player_id AND login_after_first_time.consecutive_login = a1.event_date
-)
+WITH
+    login_after_first_time
+    AS
+    (
+        SELECT player_id, DATEADD(day, 1, min(event_date)) as consecutive_login
+        FROM Activity
+        GROUP BY player_id
+    ),
+    player_count
+    AS
+    (
+        SELECT COUNT(DISTINCT(a1.player_id)) AS count
+        FROM Activity a1
+            JOIN login_after_first_time
+            ON login_after_first_time.player_id = a1.player_id AND login_after_first_time.consecutive_login = a1.event_date
+    )
 
-SELECT CAST(ROUND((player_count.count * 1.00/(SELECT COUNT(DISTINCT(a2.player_id)) FROM Activity a2)),2) AS DECIMAL(9,2)) AS fraction
+SELECT CAST(ROUND((player_count.count * 1.00/(SELECT COUNT(DISTINCT(a2.player_id))
+    FROM Activity a2)),2) AS DECIMAL(9,2)) AS fraction
 FROM player_count
 
 -- faster than 28.15% queries.
@@ -653,10 +714,10 @@ FROM
 --Managers with at Least 5 direct report. https://leetcode.com/problems/managers-with-at-least-5-direct-reports/
 SELECT e1.name
 FROM
-(SELECT name, id
-FROM Employee) AS e1
-LEFT JOIN Employee e2
-ON e1.id = e2.managerId
+    (SELECT name, id
+    FROM Employee) AS e1
+    LEFT JOIN Employee e2
+    ON e1.id = e2.managerId
 GROUP BY e1.name
 HAVING count(e2.managerId) >= 5
 -- simple self join. faster than 75.83% result.
@@ -673,25 +734,30 @@ FROM Candidate c
     ON c.id = v.candidateId
 GROUP BY c.name
 HAVING count(v.id) = (SELECT max(rn)
-                    FROM
-                        (SELECT row_number() OVER (PARTITION BY candidateId ORDER BY id) as rn
-                        FROM Vote) t)
+FROM
+    (SELECT row_number() OVER (PARTITION BY candidateId ORDER BY id) as rn
+    FROM Vote) t)
 
 -- faster than 43.56% query. 
 
 
 -- Get Highest Answer Rate Question, https://leetcode.com/problems/get-highest-answer-rate-question/
 
-WITH t1 AS (
-    SELECT count(question_id) AS count, question_id
-    FROM SurveyLog
-    WHERE answer_id IS NOT null AND action = 'answer'
-    GROUP BY question_id)
-SELECT question_id as survey_log 
+WITH
+    t1
+    AS
+    (
+        SELECT count(question_id) AS count, question_id
+        FROM SurveyLog
+        WHERE answer_id IS NOT null AND action = 'answer'
+        GROUP BY question_id
+    )
+SELECT question_id as survey_log
 FROM SurveyLog
 WHERE answer_id IS NOT null AND action = 'answer'
 GROUP BY question_id
-HAVING count(question_id)  = (SELECT MAX(t1.count) as max_answered FROM t1);
+HAVING count(question_id)  = (SELECT MAX(t1.count) as max_answered
+FROM t1);
 
 -- CTE solution, faster 13.6% of queries,. Purhaps should use window function with ROW_NUMBER
 
@@ -701,8 +767,8 @@ HAVING count(question_id)  = (SELECT MAX(t1.count) as max_answered FROM t1);
 
 SELECT e1.name as Employee
 FROM Employee e1
-JOIN Employee e2
-ON e1.managerId = e2.id AND e1.salary > e2.salary;
+    JOIN Employee e2
+    ON e1.managerId = e2.id AND e1.salary > e2.salary;
 
 
 -- Count Student Number in Departments, https://leetcode.com/problems/count-student-number-in-departments/
@@ -715,25 +781,29 @@ SELECT DISTINCT d.dept_name, (CASE
                       ELSE t2.student_count
                    END) AS student_number
 FROM Department d
-LEFT JOIN
+    LEFT JOIN
     (SELECT MAX(rn) OVER (PARTITION BY t1.dept_id) AS student_count, t1.dept_id
     FROM
         (SELECT ROW_NUMBER() OVER (PARTITION BY dept_id ORDER BY student_id) as rn, dept_id
         FROM Student) AS t1) AS t2
-ON d.dept_id = t2.dept_id
+    ON d.dept_id = t2.dept_id
 ORDER BY student_number desc, d.dept_name
 
 -- REMERBER!!! use distinct to get rid duplicates from left join. faster than 52% of queries. count should do the trick with window function too.
 
 
 --Investments in 2016, https://leetcode.com/problems/investments-in-2016/
-WITH t AS(
-    SELECT
-        tiv_2016
+WITH
+    t
+    AS
+    
+    (
+        SELECT
+            tiv_2016
         , COUNT(*) OVER (PARTITION BY tiv_2015) AS count_15
         , COUNT(*) OVER (PARTITION BY lat, lon) AS  count_loc
-    FROM Insurance
-)
+        FROM Insurance
+    )
 SELECT
     CAST(SUM(tiv_2016) AS DECIMAL(10,2)) AS tiv_2016
 FROM t
@@ -747,20 +817,26 @@ WHERE count_15 >= 2 AND count_loc = 1;
 
 /* self left join with CTE, do not use Window function otherwise it will leave duplicates */
 
-WITH t1 AS (
-            SELECT requester_id, count(*) as rqst_cnt
-            FROM RequestAccepted
-            GROUP BY requester_id
-),
-t2 AS (
-       SELECT accepter_id, count(*) as accpt_cnt
-       FROM RequestAccepted
-       GROUP BY accepter_id 
-)
-SELECT TOP 1 t1.requester_id, isnull(t1.rqst_cnt,0) + isnull(t2.accpt_cnt,0) as num
+WITH
+    t1
+    AS
+    (
+        SELECT requester_id, count(*) as rqst_cnt
+        FROM RequestAccepted
+        GROUP BY requester_id
+    ),
+    t2
+    AS
+    (
+        SELECT accepter_id, count(*) as accpt_cnt
+        FROM RequestAccepted
+        GROUP BY accepter_id
+    )
+SELECT TOP 1
+    t1.requester_id, isnull(t1.rqst_cnt,0) + isnull(t2.accpt_cnt,0) as num
 FROM t1
-LEFT JOIN t2
-ON t1.requester_id = t2.accepter_id
+    LEFT JOIN t2
+    ON t1.requester_id = t2.accepter_id
 ORDER BY isnull(t1.rqst_cnt,0) + isnull(t2.accpt_cnt,0) desc
 
 -- I only worked out the first logic where 'Left join' is needed. 
@@ -772,7 +848,8 @@ ORDER BY isnull(t1.rqst_cnt,0) + isnull(t2.accpt_cnt,0) desc
 
 SELECT t1.id, (CASE
                WHEN t1.p_id is null then 'Root'
-               WHEN t1.id in (SELECT t2.p_id FROM Tree AS t2)  then 'Inner'
+               WHEN t1.id in (SELECT t2.p_id
+    FROM Tree AS t2)  then 'Inner'
                ELSE 'Leaf'
            END) AS type
 FROM Tree AS t1
@@ -784,19 +861,20 @@ FROM Tree AS t1
 /* main logic: cross join */
 
 SELECT CAST(ROUND(MIN(dis),2) AS DECIMAL(9,2)) as shortest
-FROM 
-(SELECT SQRT(SQUARE(p2.x - p1.x) + SQUARE(p2.y - p1.y)) as dis
-FROM Point2D as p1
+FROM
+    (SELECT SQRT(SQUARE(p2.x - p1.x) + SQUARE(p2.y - p1.y)) as dis
+    FROM Point2D as p1
 CROSS JOIN Point2D as p2) as t
-WHERE dis > 0 -- this removes self calculating;
+WHERE dis > 0
+-- this removes self calculating;
 -- I first thought using cursor turns out it's an over complicated thinking. Cross join is way more efficient. 
 
 -- 614. Second Degree Follower SELECT f1.followee as follower, COUNT(DISTINCT f1.follower) as num
 /* main logic: self join */
 SELECT f1.followee as follower, COUNT(DISTINCT f1.follower) as num
 FROM Follow as f1
-JOIN Follow as f2
-ON f1.followee = f2.follower
+    JOIN Follow as f2
+    ON f1.followee = f2.follower
 GROUP BY f1.followee
 ORDER BY f1.followee
 
@@ -805,7 +883,7 @@ ORDER BY f1.followee
 /* main logic: do not think iteration or if-else , use LEAD and LAG for swap, ISNULL to deal with the first row */
 
 SELECT s.id AS id
-,IIF(s.id % 2 = 1, 
+, IIF(s.id % 2 = 1, 
     ISNULL(LEAD(student) OVER (ORDER BY id ASC), s.student), LAG(student) OVER (ORDER BY id ASC)
     ) AS student
 FROM Seat s
@@ -827,30 +905,34 @@ SELECT DISTINCT t1.customer_id FROM
 WHERE t1.product_count = (SELECT COUNT(DISTINCT product_key) FROM Product) */
 
 
-SELECT c.customer_id 
+SELECT c.customer_id
 From Customer c
-JOIN Product p
-ON c.product_key = p.product_key
+    JOIN Product p
+    ON c.product_key = p.product_key
 GROUP BY c.customer_id
-HAVING COUNT(DISTINCT c.product_key) = (SELECT COUNT(DISTINCT product_key) FROM Product)
+HAVING COUNT(DISTINCT c.product_key) = (SELECT COUNT(DISTINCT product_key)
+FROM Product)
 
 -- 1070. Product Sales Analysis III, https://leetcode.com/problems/product-sales-analysis-iii/
 /* main logic: simple RANK() window function */
 SELECT product_id, year as first_year, quantity, price
 FROM
-    (SELECT product_id, year, quantity, price, RANK() OVER (PARTITION BY product_id ORDER BY year asc) as rk 
+    (SELECT product_id, year, quantity, price, RANK() OVER (PARTITION BY product_id ORDER BY year asc) as rk
     FROM Sales) t
 WHERE rk = 1
 
 
 -- 1010, Pairs of Songs With Total Durations Divisible by 60, https://leetcode.com/problems/pairs-of-songs-with-total-durations-divisible-by-60/
 
-WITH t1 AS (
-    SELECT p.project_id, p.employee_id, DENSE_RANK() OVER (PARTITION BY p.project_id ORDER BY e.experience_years desc) as rnk
-    FROM Project p
+WITH
+    t1
+    AS
+    (
+        SELECT p.project_id, p.employee_id, DENSE_RANK() OVER (PARTITION BY p.project_id ORDER BY e.experience_years desc) as rnk
+        FROM Project p
     CROSS APPLY Employee e
-    WHERE p.employee_id = e.employee_id
-)
+        WHERE p.employee_id = e.employee_id
+    )
 SELECT project_id, employee_id
 FROM t1
 WHERE rnk = 1
@@ -866,17 +948,18 @@ WHERE rnk = 1
 SELECT book_id, name
 FROM books
 WHERE book_id NOT IN (
-                        SELECT book_id
-                        FROM Orders
-                        GROUP BY book_id
-                        HAVING sum(CASE WHEN dispatch_date >= DATEADD(YEAR, -1, '2019-06-23' ) THEN quantity else 0 end) >= 10
-                    UNION (
-                             SELECT book_id
-                             FROM Books
-                             WHERE available_from > DATEADD(MONTH, -1, '2019-06-23' )))  
+                            SELECT book_id
+    FROM Orders
+    GROUP BY book_id
+    HAVING sum(CASE WHEN dispatch_date >= DATEADD(YEAR, -1, '2019-06-23' ) THEN quantity else 0 end) >= 10
+UNION
+    (
+    SELECT book_id
+    FROM Books
+    WHERE available_from > DATEADD(MONTH, -1, '2019-06-23' )))
 
 
-SELECT user_id, activity,  ROW_NUMBER() OVER (PARTITION BY user_id, activity_date) as rnk, activity_date
+SELECT user_id, activity, ROW_NUMBER() OVER (PARTITION BY user_id, activity_date) as rnk, activity_date
 FROM Traffic
 WHERE activity_date >= DATEADD(day, -90, '2019-06-30') AND activity = 'login'
 
@@ -888,24 +971,30 @@ step 3: select row number = 1 to get the most recent price
 step 4: get a list of products regardless whether they have changed price or not
 step 5: left join or right join with a case statement to default the price to 10 dollers for products that have not changed price before the given date
 */
-WITH t1 AS (
-    SELECT product_id, new_price as price
-    FROM
-        (SELECT product_id, new_price, ROW_NUMBER() OVER (partition BY product_id ORDER BY change_date desc) as rownum
-        FROM Products
-        WHERE change_date <= '2019-08-16') t
-    WHERE rownum = 1
-), t2 AS (
+WITH
+    t1
+    AS
+    (
+        SELECT product_id, new_price as price
+        FROM
+            (SELECT product_id, new_price, ROW_NUMBER() OVER (partition BY product_id ORDER BY change_date desc) as rownum
+            FROM Products
+            WHERE change_date <= '2019-08-16') t
+        WHERE rownum = 1
+    ),
+    t2
+    AS
+    (
         SELECT DISTINCT product_id
         FROM Products
-)
+    )
 SELECT t2.product_id, (CASE
                        WHEN t1.price IS NULL THEN 10
                        ELSE t1.price
                       END) as price
 FROM t1
-RIGHT JOIN t2
-ON t1.product_id = t2.product_id
+    RIGHT JOIN t2
+    ON t1.product_id = t2.product_id
 
 
 -- 1174. Immediate Food Delivery II, https://leetcode.com/problems/immediate-food-delivery-ii/
@@ -914,21 +1003,26 @@ ON t1.product_id = t2.product_id
 2. then CTEs to organize code
 */
 
-WITH t1 AS (
-            SELECT delivery_id
-            FROM Delivery 
-            WHERE order_date = customer_pref_delivery_date
-),
-t2 AS (
-        SELECT delivery_id 
+WITH
+    t1
+    AS
+    (
+        SELECT delivery_id
+        FROM Delivery
+        WHERE order_date = customer_pref_delivery_date
+    ),
+    t2
+    AS
+    (
+        SELECT delivery_id
         FROM (SELECT delivery_id, row_number() OVER (PARTITION BY customer_id ORDER BY order_date asc) AS rownum
-        FROM Delivery) t
+            FROM Delivery) t
         WHERE rownum = 1
-)
-SELECT ROUND((COUNT(t1.delivery_id) * 1.00) / (COUNT(t2.delivery_id) * 1.00) * 100, 2) AS immediate_percentage 
+    )
+SELECT ROUND((COUNT(t1.delivery_id) * 1.00) / (COUNT(t2.delivery_id) * 1.00) * 100, 2) AS immediate_percentage
 FROM t1
-RIGHT JOIN t2
-ON t1.delivery_id = t2.delivery_id
+    RIGHT JOIN t2
+    ON t1.delivery_id = t2.delivery_id
 
 
 
@@ -939,80 +1033,102 @@ SELECT d.name AS Department, e.name AS Employee, e.salary AS Salary
 FROM
     (SELECT dense_rank() OVER (PARTITION BY departmentId ORDER BY salary DESC) as salary_rank, departmentId, id
     FROM Employee) AS t1
-JOIN Employee e
-ON t1.id = e.id
-JOIN Department d
-ON d.id = t1.departmentId
+    JOIN Employee e
+    ON t1.id = e.id
+    JOIN Department d
+    ON d.id = t1.departmentId
 WHERE salary_rank <= 3
- 
+
 
 
 -- 262. Trips and Users, Hard https://leetcode.com/problems/trips-and-users/
 /* place holder */
 
-WITH t1 AS (
-            SELECT *
-            FROM Users u 
-            WHERE LOWER(banned) = 'No' AND LOWER(role) = 'driver'
-), t2 AS ( 
-         SELECT *
-         FROM Users u 
-         WHERE LOWER(banned) = 'No' AND LOWER(role) = 'client'
-), t3 AS (
-SELECT COUNT(id) AS total_cancelled, request_at  
-    FROM Trips 
-    WHERE client_id IN (SELECT users_id FROM t2) AND driver_id IN (SELECT users_id FROM t1) AND status LIKE '%cancelled%' AND request_at between '2013-10-01' and '2013-10-03'
-    GROUP BY request_at
-), t4 AS (
-    SELECT COUNT(id) AS total_count, request_at  
-    FROM Trips 
-    WHERE client_id IN (SELECT users_id FROM t2) AND driver_id IN (SELECT users_id FROM t1) AND request_at between '2013-10-01' and '2013-10-03'
-    GROUP BY request_at
-)
+WITH
+    t1
+    AS
+    (
+        SELECT *
+        FROM Users u
+        WHERE LOWER(banned) = 'No' AND LOWER(role) = 'driver'
+    ),
+    t2
+    AS
+    (
+        SELECT *
+        FROM Users u
+        WHERE LOWER(banned) = 'No' AND LOWER(role) = 'client'
+    ),
+    t3
+    AS
+    (
+        SELECT COUNT(id) AS total_cancelled, request_at
+        FROM Trips
+        WHERE client_id IN (SELECT users_id
+            FROM t2) AND driver_id IN (SELECT users_id
+            FROM t1) AND status LIKE '%cancelled%' AND request_at between '2013-10-01' and '2013-10-03'
+        GROUP BY request_at
+    ),
+    t4
+    AS
+    (
+        SELECT COUNT(id) AS total_count, request_at
+        FROM Trips
+        WHERE client_id IN (SELECT users_id
+            FROM t2) AND driver_id IN (SELECT users_id
+            FROM t1) AND request_at between '2013-10-01' and '2013-10-03'
+        GROUP BY request_at
+    )
 
 SELECT t4.request_at as Day, ISNULL(CAST(CAST(t3.total_cancelled AS FLOAT)/CAST(t4.total_count AS FLOAT) AS DECIMAL(9,2)), 0.00) as 'Cancellation Rate'
-FROM t3 
-RIGHT JOIN t4
-ON t3.request_at = t4.request_at
+FROM t3
+    RIGHT JOIN t4
+    ON t3.request_at = t4.request_at
 
 -- 1193. Monthly Transactions I， https://leetcode.com/problems/monthly-transactions-i/
 
-WITH t1 AS (
-    SELECT FORMAT(trans_date,'yyyy-MM') as month, country, COUNT(id) as trans_count, sum(amount) as trans_total_amount
-    FROM Transactions
-    GROUP BY FORMAT(trans_date,'yyyy-MM'), country
-),
-t2 AS (
-    SELECT FORMAT(trans_date,'yyyy-MM') as month, country, COUNT(id) as approved_count , sum(amount) as approved_total_amount 
-    FROM Transactions
-    WHERE state like 'approved'
-    GROUP BY FORMAT(trans_date,'yyyy-MM'), country
-)
+WITH
+    t1
+    AS
+    (
+        SELECT FORMAT(trans_date,'yyyy-MM') as month, country, COUNT(id) as trans_count, sum(amount) as trans_total_amount
+        FROM Transactions
+        GROUP BY FORMAT(trans_date,'yyyy-MM'), country
+    ),
+    t2
+    AS
+    (
+        SELECT FORMAT(trans_date,'yyyy-MM') as month, country, COUNT(id) as approved_count , sum(amount) as approved_total_amount
+        FROM Transactions
+        WHERE state like 'approved'
+        GROUP BY FORMAT(trans_date,'yyyy-MM'), country
+    )
 
 SELECT t1.month, t1.country, t1.trans_count, ISNULL(t2.approved_count,0) AS approved_count, t1.trans_total_amount, ISNULL(t2.approved_total_amount,0) AS approved_total_amount
 FROM t1
-LEFT JOIN t2
-ON t1.month = t2.month and t1.country = t2.country
+    LEFT JOIN t2
+    ON t1.month = t2.month and t1.country = t2.country
 
 /* alternative method: remember SELECT is acting row by row like a loop */
 
 select
-FORMAT(trans_date,'yyyy-MM') as month,
-country,
-SUM(case when state is not null then 1 else 0 end) as trans_count,
-SUM(case when LOWER(state) ='approved' then 1 else 0 end) as approved_count,
-SUM(case when state is not null then amount else 0 end) as trans_total_amount,
-SUM(case when LOWER(state) ='approved' then amount else 0 end) as approved_total_amount
+    FORMAT(trans_date,'yyyy-MM') as month,
+    country,
+    SUM(case when state is not null then 1 else 0 end) as trans_count,
+    SUM(case when LOWER(state) ='approved' then 1 else 0 end) as approved_count,
+    SUM(case when state is not null then amount else 0 end) as trans_total_amount,
+    SUM(case when LOWER(state) ='approved' then amount else 0 end) as approved_total_amount
 from transactions
 group by FORMAT(trans_date,'yyyy-MM'), country
 order by SUM(case when state is not null then 1 else 0 end) desc
 
 
 -- 1204. Last Person to Fit in the Bus, https://leetcode.com/problems/last-person-to-fit-in-the-bus/
-SELECT TOP 1 person_name
+SELECT TOP 1
+    person_name
 FROM (
         SELECT turn, person_name, sum(weight) OVER (ORDER BY turn) AS rolling_total
-        FROM Queue 
+    FROM Queue 
      ) t
 WHERE rolling_total <= 1000
 ORDER BY turn DESC
@@ -1026,35 +1142,44 @@ ORDER BY turn DESC
     3. it won't be any duplicates
 
 */
-WITH home AS (
-            SELECT t.team_name, SUM(m.home_team_goals) AS goal_for, count(m.home_team_goals) AS played, SUM(
+WITH
+    home
+    AS
+    (
+        SELECT t.team_name, SUM(m.home_team_goals) AS goal_for, count(m.home_team_goals) AS played, SUM(
                                                                                                             CASE 
                                                                                                                  WHEN m.home_team_goals > m.away_team_goals THEN 3 -- when playing on the wining side.
                                                                                                                  WHEN m.home_team_goals = m.away_team_goals THEN 1
                                                                                                                     ELSE 0
-                                                                                                            END) AS points, 
-                                                                                                            SUM(m.away_team_goals) AS goal_against
+                                                                                                            END) AS points,
+            SUM(m.away_team_goals) AS goal_against
 
-            FROM Teams t
+        FROM Teams t
             JOIN Matches m
             ON t.team_id = m.home_team_id
-            GROUP BY t.team_name
-), away AS (
-            SELECT t.team_name, SUM(m.away_team_goals) AS goal_for, count(m.away_team_goals) AS played, SUM(
+        GROUP BY t.team_name
+    ),
+    away
+    AS
+    (
+        SELECT t.team_name, SUM(m.away_team_goals) AS goal_for, count(m.away_team_goals) AS played, SUM(
                                                                                                             CASE 
                                                                                                                 WHEN m.home_team_goals < m.away_team_goals THEN 3 -- when playing on the away side
                                                                                                                 WHEN m.home_team_goals = m.away_team_goals THEN 1
                                                                                                                 ELSE 0
                                                                                                                 END) AS points,
-                                                                                                        SUM(m.home_team_goals) AS goal_against
-            FROM Teams t
+            SUM(m.home_team_goals) AS goal_against
+        FROM Teams t
             JOIN Matches m
             ON t.team_id = m.away_team_id
-            GROUP BY t.team_name
-)   
+        GROUP BY t.team_name
+    )
 SELECT team_name, SUM(played) AS matches_played, SUM(points) AS points, SUM(goal_for) AS goal_for, SUM(goal_against) AS goal_against, SUM(goal_for) - SUM(goal_against) AS goal_diff
-FROM (SELECT * FROM home
-UNION ALL (SELECT * FROM away)) AS final
+FROM (        SELECT *
+        FROM home
+    UNION ALL
+        (SELECT *
+        FROM away)) AS final
 GROUP BY team_name
 ORDER BY points DESC, goal_diff DESC, team_name ASC;
 
@@ -1066,31 +1191,43 @@ ORDER BY points DESC, goal_diff DESC, team_name ASC;
     For example, employer vs employee, caller vs callee, requester vs requestee.
  */
 
-WITH caller AS (
-                SELECT c.name AS country, SUM(duration) as duration, count(cs.callee_id) AS calls
-                FROM Person AS p
-                JOIN Country AS c
-                ON LEFT(p.phone_number, 3) = c.country_code 
-                JOIN Calls cs
-                ON p.id = cs.caller_id
-                GROUP BY c.name
-), callee AS (
-                SELECT c.name AS country, SUM(duration) as duration, count(cs.callee_id) AS calls
-                FROM Person AS p
-                JOIN Country AS c
-                ON LEFT(p.phone_number, 3) = c.country_code 
-                JOIN Calls cs
-                ON p.id = cs.callee_id
-                GROUP BY c.name
+WITH
+    caller
+    AS
+    (
+        SELECT c.name AS country, SUM(duration) as duration, count(cs.callee_id) AS calls
+        FROM Person AS p
+            JOIN Country AS c
+            ON LEFT(p.phone_number, 3) = c.country_code
+            JOIN Calls cs
+            ON p.id = cs.caller_id
+        GROUP BY c.name
+    ),
+    callee
+    AS
+    (
+        SELECT c.name AS country, SUM(duration) as duration, count(cs.callee_id) AS calls
+        FROM Person AS p
+            JOIN Country AS c
+            ON LEFT(p.phone_number, 3) = c.country_code
+            JOIN Calls cs
+            ON p.id = cs.callee_id
+        GROUP BY c.name
 
-)
-            SELECT country
-            FROM (
-                 (SELECT * FROM caller) 
-                 UNION ALL (SELECT * FROM callee)
+    )
+SELECT country
+FROM (
+                         (
+        SELECT *
+        FROM caller
+        )
+    UNION ALL
+        (SELECT *
+        FROM callee)
                  ) AS t
-            GROUP BY country
-            HAVING (SUM(duration) * 1.00 / SUM(calls)) > (SELECT AVG(CAST(duration  AS DECIMAL(9,2))) FROM Calls)
+GROUP BY country
+HAVING (SUM(duration) * 1.00 / SUM(calls)) > (SELECT AVG(CAST(duration  AS DECIMAL(9,2)))
+FROM Calls)
 
 -- 1454. Active Users, https://leetcode.com/problems/active-users/
 /* main logic: 
@@ -1099,14 +1236,18 @@ The fist login date is nth day away from the last login date.
 
 Another import thing is to use distinct to get rid of multiple logins in the same day.
 */
-WITH t1 AS (
-            SELECT id, login_date, DATEADD(day, DENSE_RANK() OVER (PARTITION BY id ORDER BY login_date DESC), login_date) AS ConsecDays 
-            FROM (SELECT DISTINCT * FROM Logins) AS t
-)
+WITH
+    t1
+    AS
+    (
+        SELECT id, login_date, DATEADD(day, DENSE_RANK() OVER (PARTITION BY id ORDER BY login_date DESC), login_date) AS ConsecDays
+        FROM (SELECT DISTINCT *
+            FROM Logins) AS t
+    )
 
-SELECT DISTINCT a.id, a.name 
+SELECT DISTINCT a.id, a.name
 FROM t1
-JOIN Accounts a ON a.id = t1.id
+    JOIN Accounts a ON a.id = t1.id
 GROUP BY a.id, a.name, ConsecDays
 HAVING COUNT(DISTINCT login_date) >= 5
 ORDER BY 1
@@ -1115,94 +1256,130 @@ ORDER BY 1
 /* the main logic is similar to 1454, with 1 caveat thatL 
 unlike date, to calculate consective number we use contest_id + rank - 1 */
 
-WITH t1 AS (
-    SELECT u.user_id as user_id
-    FROM Users u 
-    WHERE u.user_id IN (SELECT DISTINCT gold_medal 
-                    FROM Contests 
-                    GROUP BY gold_medal 
-                    HAVING COUNT(contest_id) >= 3)
-), t2 AS (
-    SELECT contest_id, gold_medal AS user_id
-    FROM Contests
-    UNION ALL (SELECT contest_id, silver_medal FROM Contests) -- this can be replaced with unpivot in sql server
-    UNION ALL (SELECT contest_id, bronze_medal FROM Contests)
-), t3 AS (
-    SELECT user_id, contest_id, (contest_id + DENSE_RANK() OVER (PARTITION BY user_id ORDER BY contest_id DESC) - 1) AS consecContest
-    FROM t2
-    
-), t4 AS (
-    SELECT DISTINCT user_id
-    FROM t3
-    GROUP BY user_id, consecContest
-    HAVING COUNT(DISTINCT contest_id) >= 3
-    UNION (SELECT user_id FROM t1)
-)
+WITH
+    t1
+    AS
+    (
+        SELECT u.user_id as user_id
+        FROM Users u
+        WHERE u.user_id IN (SELECT DISTINCT gold_medal
+        FROM Contests
+        GROUP BY gold_medal
+        HAVING COUNT(contest_id) >= 3)
+    ),
+    t2
+    AS
+    (
+                            SELECT contest_id, gold_medal AS user_id
+            FROM Contests
+        UNION ALL
+            (SELECT contest_id, silver_medal
+            FROM Contests)
+        -- this can be replaced with unpivot in sql server
+        UNION ALL
+            (SELECT contest_id, bronze_medal
+            FROM Contests)
+    ),
+    t3
+    AS
+    (
+        SELECT user_id, contest_id, (contest_id + DENSE_RANK() OVER (PARTITION BY user_id ORDER BY contest_id DESC) - 1) AS consecContest
+        FROM t2
+
+    ),
+    t4
+    AS
+    (
+                    SELECT DISTINCT user_id
+            FROM t3
+            GROUP BY user_id, consecContest
+            HAVING COUNT(DISTINCT contest_id) >= 3
+        UNION
+            (SELECT user_id
+            FROM t1)
+    )
 
 SELECT u.name, u.mail
 FROM Users u
-JOIN t4
-ON u.user_id = t4.user_id
+    JOIN t4
+    ON u.user_id = t4.user_id
 
 -- using pivot instead of union
 
-WITH t1 AS (
-    SELECT u.user_id as user_id
-    FROM Users u 
-    WHERE u.user_id IN (SELECT DISTINCT gold_medal 
-                    FROM Contests 
-                    GROUP BY gold_medal 
-                    HAVING COUNT(contest_id) >= 3)
-), t2 AS (  -- this is unique to sql server, using unpivot is actually more tidier than union, because we know have the information of medal type (FOR... IN... section) 
-            SELECT contest_id, user_id
-            FROM (
+WITH
+    t1
+    AS
+    (
+        SELECT u.user_id as user_id
+        FROM Users u
+        WHERE u.user_id IN (SELECT DISTINCT gold_medal
+        FROM Contests
+        GROUP BY gold_medal
+        HAVING COUNT(contest_id) >= 3)
+    ),
+    t2
+    AS
+    (
+        -- this is unique to sql server, using unpivot is actually more tidier than union, because we know have the information of medal type (FOR... IN... section) 
+        SELECT contest_id, user_id
+        FROM (
                     SELECT contest_id, gold_medal, silver_medal, bronze_medal
-                    FROM Contests
+            FROM Contests
                  ) c
         UNPIVOT
                 (user_id FOR medal IN (gold_medal, silver_medal, bronze_medal)) AS pvt
-), t3 AS (
-    SELECT user_id, contest_id, (contest_id + DENSE_RANK() OVER (PARTITION BY user_id ORDER BY contest_id DESC) - 1) AS consecContest
-    FROM t2
-    
-), t4 AS (
-    SELECT DISTINCT user_id
-    FROM t3
-    GROUP BY user_id, consecContest
-    HAVING COUNT(DISTINCT contest_id) >= 3
-    UNION (SELECT user_id FROM t1)
-)
+    ),
+    t3
+    AS
+    (
+        SELECT user_id, contest_id, (contest_id + DENSE_RANK() OVER (PARTITION BY user_id ORDER BY contest_id DESC) - 1) AS consecContest
+        FROM t2
+
+    ),
+    t4
+    AS
+    (
+                    SELECT DISTINCT user_id
+            FROM t3
+            GROUP BY user_id, consecContest
+            HAVING COUNT(DISTINCT contest_id) >= 3
+        UNION
+            (SELECT user_id
+            FROM t1)
+    )
 SELECT u.name, u.mail
 FROM Users u
-JOIN t4
-ON u.user_id = t4.user_id
+    JOIN t4
+    ON u.user_id = t4.user_id
 
 -- 1934. Confirmation Rate, https://leetcode.com/problems/confirmation-rate/
 /*  */
- SELECT s.user_id, CASE 
+SELECT s.user_id, CASE 
                     WHEN t3.id is Null THEN 0
                     ELSE t3.confirmation_rate
                   END AS confirmation_rate
 FROM Signups s
-LEFT JOIN
-    (SELECT t1.id AS id, ROUND(COUNT(t2.action)*1.00/t1.total_requested, 2) AS confirmation_rate 
-    FROM (SELECT COUNT(action) OVER (PARTITION BY user_id) AS total_requested, user_id AS id, time_stamp 
-          FROM Confirmations) t1
-    JOIN (SELECT * FROM Confirmations WHERE action = 'confirmed') t2
-    ON t1.time_stamp  = t2.time_stamp
+    LEFT JOIN
+    (SELECT t1.id AS id, ROUND(COUNT(t2.action)*1.00/t1.total_requested, 2) AS confirmation_rate
+    FROM (SELECT COUNT(action) OVER (PARTITION BY user_id) AS total_requested, user_id AS id, time_stamp
+        FROM Confirmations) t1
+        JOIN (SELECT *
+        FROM Confirmations
+        WHERE action = 'confirmed') t2
+        ON t1.time_stamp  = t2.time_stamp
     GROUP BY id, t1.total_requested) t3
-ON s.user_id = t3.id
+    ON s.user_id = t3.id
 
 -- 1867. Orders With Maximum Quantity Above Average, https://leetcode.com/problems/orders-with-maximum-quantity-above-average/
 SELECT order_id
-FROM 
+FROM
     (SELECT o.order_id, o.quantity, MAX(t.avg) OVER () as max_avg
     FROM OrdersDetails o
-    JOIN (
+        JOIN (
             SELECT SUM(quantity) * 1.00 / count(DISTINCT product_id) as avg, order_id as id
-            FROM OrdersDetails 
-            GROUP BY order_id) t
-    ON o.order_id = t.id) t1
+        FROM OrdersDetails
+        GROUP BY order_id) t
+        ON o.order_id = t.id) t1
 GROUP BY order_id, max_avg
 HAVING MAX(quantity) > max_avg
 
@@ -1212,62 +1389,92 @@ HAVING MAX(quantity) > max_avg
 
 /* not right join */
 
-WITH direct AS (
-    SELECT e1.employee_id AS employee_id
-    FROM Employees e
-    JOIN Employees e1
-    ON e.manager_id = e1.manager_id
-    WHERE e.manager_id = 1 
-), direct_exclude_boss AS (
-    SELECT * FROM direct WHERE employee_id <> 1
-), indirect_1 AS (
-    SELECT e2.employee_id AS employee_id
+WITH
+    direct
+    AS
+    (
+        SELECT e1.employee_id AS employee_id
+        FROM Employees e
+            JOIN Employees e1
+            ON e.manager_id = e1.manager_id
+        WHERE e.manager_id = 1
+    ),
+    direct_exclude_boss
+    AS
+    (
+        SELECT *
+        FROM direct
+        WHERE employee_id <> 1
+    ),
+    indirect_1
+    AS
+    (
+        SELECT e2.employee_id AS employee_id
+        FROM direct_exclude_boss
+            JOIN Employees e2
+            ON direct_exclude_boss.employee_id = e2.manager_id
+    ),
+    indirect_2
+    AS
+    (
+        SELECT e3.employee_id AS employee_id
+        FROM indirect_1
+            JOIN Employees e3
+            ON indirect_1.employee_id = e3.manager_id
+    ),
+    indirect_3
+    AS
+    (
+        SELECT e3.employee_id AS employee_id
+        FROM indirect_2
+            JOIN Employees e3
+            ON indirect_2.employee_id = e3.manager_id
+    )
+    SELECT employee_id
     FROM direct_exclude_boss
-    JOIN Employees e2 
-    ON direct_exclude_boss.employee_id = e2.manager_id
-), indirect_2 AS (
-    SELECT e3.employee_id AS employee_id
-    FROM indirect_1
-    JOIN Employees e3
-    ON indirect_1.employee_id = e3.manager_id
-), indirect_3 AS (
-    SELECT e3.employee_id AS employee_id
-    FROM indirect_2
-    JOIN Employees e3
-    ON indirect_2.employee_id = e3.manager_id
-)
-SELECT employee_id
-FROM direct_exclude_boss
-UNION (SELECT employee_id FROM indirect_1)
-UNION (SELECT employee_id FROM indirect_2)
-UNION (SELECT employee_id FROM indirect_3)
+UNION
+    (SELECT employee_id
+    FROM indirect_1)
+UNION
+    (SELECT employee_id
+    FROM indirect_2)
+UNION
+    (SELECT employee_id
+    FROM indirect_3)
 
 
 --2020. Number of Accounts That Did Not Stream, https://leetcode.com/problems/number-of-accounts-that-did-not-stream/
 
 SELECT COUNT(DISTINCT account_id) AS accounts_count
-FROM Subscriptions 
-WHERE (YEAR(end_date) = 2021 OR YEAR(start_date) = 2021) AND EXISTS (SELECT 1 FROM Streams WHERE Subscriptions.account_id = Streams.account_id AND YEAR(stream_date) <> 2021)
+FROM Subscriptions
+WHERE (YEAR(end_date) = 2021 OR YEAR(start_date) = 2021) AND EXISTS (SELECT 1
+    FROM Streams
+    WHERE Subscriptions.account_id = Streams.account_id AND YEAR(stream_date) <> 2021)
 
 -- 1205. Monthly Transactions II, https://leetcode.com/problems/monthly-transactions-ii/
 
 
-WITH t1 AS (
-    SELECT t.id AS id, t.country AS country, t.state AS state, t.amount AS amount, FORMAT(t.trans_date, 'yyyy-MM') AS month
-    FROM Transactions t
-    UNION (SELECT c.trans_id AS id, t2.country, 'chargeback' AS state, t2.amount AS amount, FORMAT(c.trans_date,'yyyy-MM') AS month
-           FROM chargebacks c
-           LEFT JOIN transactions t2
-           ON c.trans_id = t2.id)
+WITH
+    t1
+    AS
+    (
+                    SELECT t.id AS id, t.country AS country, t.state AS state, t.amount AS amount, FORMAT(t.trans_date, 'yyyy-MM') AS month
+            FROM Transactions t
+        UNION
+            (SELECT c.trans_id AS id, t2.country, 'chargeback' AS state, t2.amount AS amount, FORMAT(c.trans_date,'yyyy-MM') AS month
+            FROM chargebacks c
+                LEFT JOIN transactions t2
+                ON c.trans_id = t2.id)
 
-)
+    )
 SELECT month, country, SUM(CASE WHEN state = 'approved' THEN 1 ELSE 0 END) AS approved_count,
-                       SUM(CASE WHEN state = 'approved' THEN amount ELSE 0 END) AS approved_amount,
-                       SUM(CASE WHEN state = 'chargeback' THEN 1 ELSE 0 END) AS chargeback_count,
-                       SUM(CASE WHEN state = 'chargeback' THEN amount ELSE 0 END) AS chargeback_amount
+    SUM(CASE WHEN state = 'approved' THEN amount ELSE 0 END) AS approved_amount,
+    SUM(CASE WHEN state = 'chargeback' THEN 1 ELSE 0 END) AS chargeback_count,
+    SUM(CASE WHEN state = 'chargeback' THEN amount ELSE 0 END) AS chargeback_amount
 FROM t1
 GROUP BY month, country
-HAVING SUM(CASE WHEN state = 'approved' THEN 1 ELSE 0 END) + SUM(CASE WHEN state = 'chargeback' THEN 1 ELSE 0 END) != 0 -- remove the rows for charge back
+HAVING SUM(CASE WHEN state = 'approved' THEN 1 ELSE 0 END) + SUM(CASE WHEN state = 'chargeback' THEN 1 ELSE 0 END) != 0
+-- remove the rows for charge back
 
 
 -- 1321. Restaurant Growth, https://leetcode.com/problems/restaurant-growth/
@@ -1282,41 +1489,58 @@ OFFSET 6 ROWS
 -- 1285. Find the Start and End Number of Continuous Ranges, https://leetcode.com/problems/find-the-start-and-end-number-of-continuous-ranges/
 
 SELECT DISTINCT MIN(log_id) OVER (PARTITION BY sum_rnk) AS start_id, MAX(log_id) OVER (PARTITION BY sum_rnk) AS end_id
-    FROM
-        (SELECT log_id, log_id + RANK() OVER (ORDER BY log_id DESC) AS sum_rnk
-        FROM Logs) t1 
+FROM
+    (SELECT log_id, log_id + RANK() OVER (ORDER BY log_id DESC) AS sum_rnk
+    FROM Logs) t1
 
-WITH t1 AS (
-    SELECT user1_id, user2_id
-    FROM Friendship f
-    WHERE user1_id = 1
-), t2 AS (
-    SELECT user1_id, user2_id
-    FROM Friendship f
-    WHERE user2_id = 1
-), t3 AS (
-    SELECT user1_id, user2_id 
-    FROM t1
-    UNION 
-         (SELECT user2_id, user1_id FROM t2)
-)
+WITH
+    t1
+    AS
+    (
+        SELECT user1_id, user2_id
+        FROM Friendship f
+        WHERE user1_id = 1
+    ),
+    t2
+    AS
+    (
+        SELECT user1_id, user2_id
+        FROM Friendship f
+        WHERE user2_id = 1
+    ),
+    t3
+    AS
+    (
+                    SELECT user1_id, user2_id
+            FROM t1
+        UNION
+            (SELECT user2_id, user1_id
+            FROM t2)
+    )
 
 -- 1264. Page Recommendations, https://leetcode.com/problems/page-recommendations/
 
 SELECT DISTINCT page_id AS recommended_page
-FROM Likes l 
-WHERE user_id IN (SELECT t3.user2_id FROM t3) AND page_id NOT IN (SELECT page_id FROM Likes WHERE user_id = 1) -- use IN () and NOT () from the Likes table directly, do not join t3 and the Likes table.
+FROM Likes l
+WHERE user_id IN (SELECT t3.user2_id
+    FROM t3) AND page_id NOT IN (SELECT page_id
+    FROM Likes
+    WHERE user_id = 1)
+-- use IN () and NOT () from the Likes table directly, do not join t3 and the Likes table.
 
 --1907. Count Salary Categories, https://leetcode.com/problems/count-salary-categories/
 /* a way to keep 0 (there is no way to keep the 0 row when using group by*/
-SELECT
-	'Low Salary' AS category, SUM(CASE WHEN income < 20000 THEN 1 ELSE 0 END) AS accounts_count FROM Accounts
-UNION 
-SELECT
-	'Average Salary' AS category, SUM(CASE WHEN income >= 20000 AND income <= 50000 THEN 1 ELSE 0 END) AS accounts_count FROM Accounts
+    SELECT
+        'Low Salary' AS category, SUM(CASE WHEN income < 20000 THEN 1 ELSE 0 END) AS accounts_count
+    FROM Accounts
 UNION
-SELECT
-	'High Salary' AS category, SUM(CASE WHEN income > 50000 THEN 1 ELSE 0 END) AS accounts_count FROM Accounts
+    SELECT
+        'Average Salary' AS category, SUM(CASE WHEN income >= 20000 AND income <= 50000 THEN 1 ELSE 0 END) AS accounts_count
+    FROM Accounts
+UNION
+    SELECT
+        'High Salary' AS category, SUM(CASE WHEN income > 50000 THEN 1 ELSE 0 END) AS accounts_count
+    FROM Accounts
 
 -- 1393. Capital Gain/Loss, https://leetcode.com/problems/capital-gainloss/
 /*
@@ -1325,14 +1549,14 @@ practicing groupby with rollup
 SELECT stock_name, capital_gain_loss
 FROM
     (SELECT stock_name, operation , sum(price) as capital_gain_loss
-    FROM 
+    FROM
         (SELECT stock_name, operation, CASE 
                             WHEN operation = 'Buy' THEN price * (-1)
                             WHEN operation = 'Sell' THEN price
                         END AS price
         FROM Stocks) t1
     GROUP BY ROLLUP (stock_name, operation)
-    ) t2 
+    ) t2
 WHERE operation IS NULL AND stock_name IS NOT NULL
 
 -- 1308. Running Total for Different Genders, https://leetcode.com/problems/running-total-for-different-genders/
@@ -1358,10 +1582,11 @@ ORDER BY customer_id
 -- 1445. Apples & Oranges， https://leetcode.com/problems/apples-oranges/
 
 SELECT sale_date, apple - orange AS diff
-FROM 
+FROM
     (SELECT sale_date, [apples] AS apple, [oranges] AS orange
     FROM (
-        SELECT * FROM Sales
+        SELECT *
+        FROM Sales
     ) AS source_table
     PIVOT
     (
@@ -1372,19 +1597,22 @@ ORDER BY sale_date
 
 -- 2084. Drop Type 1 Orders for Customers With Type 0 Orders, https://leetcode.com/problems/drop-type-1-orders-for-customers-with-type-0-orders/
 /* This works but really slow */
-SELECT order_id, customer_id, order_type
-FROM Orders o
-WHERE order_type = 0
+    SELECT order_id, customer_id, order_type
+    FROM Orders o
+    WHERE order_type = 0
 UNION
 
-SELECT order_id, customer_id, order_type
-FROM
-    (   
+    SELECT order_id, customer_id, order_type
+    FROM
+        (   
         SELECT *
         FROM
-            (SELECT * FROM Orders o
-            WHERE order_type = 1) AS t 
-        WHERE NOT EXISTS (SELECT * FROM Orders o WHERE o.order_type = 0 AND t.customer_id = o.customer_id)
+            (SELECT *
+            FROM Orders o
+            WHERE order_type = 1) AS t
+        WHERE NOT EXISTS (SELECT *
+        FROM Orders o
+        WHERE o.order_type = 0 AND t.customer_id = o.customer_id)
     ) AS t1
 
 
@@ -1392,88 +1620,179 @@ FROM
 /* NOT IN a lot faster */
 
 
-SELECT order_id, customer_id, order_type
-FROM Orders o
-WHERE order_type = 0
+    SELECT order_id, customer_id, order_type
+    FROM Orders o
+    WHERE order_type = 0
 UNION
 
-SELECT order_id, customer_id, order_type
-FROM
-    (   
+    SELECT order_id, customer_id, order_type
+    FROM
+        (   
         SELECT *
         FROM
-            (SELECT * FROM Orders o
-            WHERE order_type = 1) AS t 
-        WHERE t.customer_id NOT IN (SELECT customer_id FROM Orders o WHERE o.order_type = 0)
+            (SELECT *
+            FROM Orders o
+            WHERE order_type = 1) AS t
+        WHERE t.customer_id NOT IN (SELECT customer_id
+        FROM Orders o
+        WHERE o.order_type = 0)
     ) AS t2
-    
+
 
 -- 1783. Grand Slam Titles, https://leetcode.com/problems/grand-slam-titles/\
 /* sql unpivot function. union should also do the trick */
 
 SELECT p.player_id, p.player_name, count(tournament) AS grand_slams_count
-FROM 
-Players p
-JOIN
-     (SELECT year, Wimbledon , Fr_open , US_open , Au_open
-       FROM Championships) p  
+FROM
+    Players p
+    JOIN
+    (SELECT year, Wimbledon , Fr_open , US_open , Au_open
+    FROM Championships) p  
     UNPIVOT  
        (champion FOR tournament IN   
           (Wimbledon , Fr_open , US_open , Au_open)  
     ) AS unpvt
-ON p.player_id = unpvt.champion
+    ON p.player_id = unpvt.champion
 GROUP BY p.player_id, p.player_name
 
 
 -- 1699. Number of Calls Between Two Persons, https://leetcode.com/problems/number-of-calls-between-two-persons/
 
 SELECT person1, person2, COUNT(1) AS call_count, SUM(duration) AS total_duration
-FROM 
-    (SELECT c1.from_id AS person1, c1.to_id AS person2, c1.duration AS duration
-    FROM Calls c1
+FROM
+    (        SELECT c1.from_id AS person1, c1.to_id AS person2, c1.duration AS duration
+        FROM Calls c1
     UNION ALL
-        (SELECT c2.to_id, c2.from_id, c2.duration FROM Calls c2)) AS t
+        (SELECT c2.to_id, c2.from_id, c2.duration
+        FROM Calls c2)) AS t
 GROUP BY person1, person2
 HAVING person1 < person2
 
 -- 2066. Account Balance,  https://leetcode.com/problems/account-balance/
 
-SELECT  account_id, day, SUM(
+SELECT account_id, day, SUM(
             IIF("type" = 'Withdraw', amount * -1, amount)) OVER (PARTITION BY account_id ORDER BY day) AS balance
 FROM Transactions;
 
 -- 1341. Movie Rating, https://leetcode.com/problems/movie-rating/
 /* Feels a bit wordy */
-WITH t1 AS (
-    SELECT COUNT(movie_id) AS rating_count, user_id
-    FROM MovieRating
-    GROUP BY user_id 
-), t2 AS (
-    SELECT u.name AS name, t1.rating_count, ROW_NUMBER() OVER (ORDER BY name) AS rn
-    FROM Users u
-    JOIN t1
-    ON u.user_id = t1.user_id
-    WHERE t1.rating_count = (SELECT max(rating_count) FROM t1) 
-), t3 AS (
-    SELECT name AS results
-    FROM t2
-    WHERE rn = 1
-), t4 AS (
-    SELECT movie_id, AVG(rating * 1.0) AS avg_rating, MONTH(created_at) AS month
-    FROM MovieRating
-    GROUP BY movie_id, MONTH(created_at)
-    HAVING MONTH(created_at) = 2
-), t5 AS (
-    SELECT m.title, ROW_NUMBER() OVER (ORDER BY t4.avg_rating desc, m.title) as rn
-    FROM Movies m
-    JOIN t4
-    ON m.movie_id = t4.movie_id
-), t6 AS (
-    SELECT t5.title AS results
-    FROM t5
-    WHERE t5.rn = 1
-)
-SELECT * FROM t3
+WITH
+    t1
+    AS
+    (
+        SELECT COUNT(movie_id) AS rating_count, user_id
+        FROM MovieRating
+        GROUP BY user_id
+    ),
+    t2
+    AS
+    (
+        SELECT u.name AS name, t1.rating_count, ROW_NUMBER() OVER (ORDER BY name) AS rn
+        FROM Users u
+            JOIN t1
+            ON u.user_id = t1.user_id
+        WHERE t1.rating_count = (SELECT max(rating_count)
+        FROM t1)
+    ),
+    t3
+    AS
+    (
+        SELECT name AS results
+        FROM t2
+        WHERE rn = 1
+    ),
+    t4
+    AS
+    (
+        SELECT movie_id, AVG(rating * 1.0) AS avg_rating, MONTH(created_at) AS month
+        FROM MovieRating
+        GROUP BY movie_id, MONTH(created_at)
+        HAVING MONTH(created_at) = 2
+    ),
+    t5
+    AS
+    (
+        SELECT m.title, ROW_NUMBER() OVER (ORDER BY t4.avg_rating desc, m.title) as rn
+        FROM Movies m
+            JOIN t4
+            ON m.movie_id = t4.movie_id
+    ),
+    t6
+    AS
+    (
+        SELECT t5.title AS results
+        FROM t5
+        WHERE t5.rn = 1
+    )
+    SELECT *
+    FROM t3
 UNION ALL
-SELECT * FROM t6
+    SELECT *
+    FROM t6;
 
+--1355. Activity Participants,  https://leetcode.com/problems/activity-participants/
+SELECT t3.name AS activity
+FROM (SELECT count(f.name) AS participants_count, a.name AS name
+    FROM Activities a
+        JOIN Friends f
+        ON a.name = f.activity
+    GROUP BY a.name) t3
+WHERE t3.participants_count <
+    (SELECT MAX(participants_count) AS max_count
+    FROM
+        (SELECT count(f.name) AS participants_count, a.name AS name
+        FROM Activities a
+            JOIN Friends f
+            ON a.name = f.activity
+        GROUP BY a.name) t1) AND t3.participants_count > (SELECT MIN(participants_count) AS MIN_count
+    FROM
+        (SELECT count(f.name) AS participants_count, a.name AS name
+        FROM Activities a
+            JOIN Friends f
+            ON a.name = f.activity
+        GROUP BY a.name) t1);
+
+/* window function, simpler and faster */
+
+
+WITH t1 AS (
+        SELECT activity, COUNT(name) OVER (PARTITION BY activity) AS cnt
+        FROM Friends
+), min_max AS (
+        SELECT MIN(cnt) AS min_cnt, MAX(cnt) AS max_cnt
+        FROM t1
+)
+    SELECT DISTINCT activity
+    FROM t1
+        JOIN min_max
+        ON cnt > min_cnt AND cnt < max_cnt;
+
+
+-- 1364. Number of Trusted Contacts of a Customer, https://leetcode.com/problems/number-of-trusted-contacts-of-a-customer/
+WITH t1 AS ( -- step 1: get a list of customer that made the purchase
+    SELECT i.invoice_id, c1.customer_name, i.price
+    FROM Invoices i
+    LEFT JOIN Customers c1
+    ON i.user_id = c1.customer_id 
+), contacts_cnt AS ( -- get the total number of contacts for each customer
+    SELECT c1.customer_name, COUNT(c2.user_id) as cnt
+    FROM Customers c1
+    JOIN Contacts c2
+    ON c1.customer_id = c2.user_id
+    GROUP BY c1.customer_name
+),  trusted_contacts_cnt AS ( -- connect the customer and contact table again, but this time, trusted contacts are appear in the customer table as well.
+    SELECT c1.customer_name, count(*) AS cnt 
+    FROM Customers c1
+    JOIN Contacts c2 
+    ON c1.customer_id = c2.user_id
+    WHERE c2.contact_name IN (SELECT customer_name FROM Customers) -- this is the key!!!
+    GROUP BY c1.customer_name
+) 
+SELECT t1.invoice_id AS invoice_id, t1.customer_name AS customer_name, t1.price AS price, ISNULL(contacts_cnt.cnt,0) AS contacts_cnt, ISNULL(trusted_contacts_cnt.cnt,0) AS trusted_contacts_cnt
+FROM t1
+-- combine everything together with left join, is ISNULL to remove any null values.
+LEFT JOIN contacts_cnt
+ON t1.customer_name = contacts_cnt.customer_name
+LEFT JOIN trusted_contacts_cnt
+ON contacts_cnt.customer_name = trusted_contacts_cnt.customer_name
+ORDER BY t1.invoice_id ASC
