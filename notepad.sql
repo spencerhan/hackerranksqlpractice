@@ -1830,3 +1830,28 @@ SELECT e.left_operand, e.operator,e.right_operand
 FROM Expressions e
 JOIN Variables AS v_left ON e.left_operand = v_left.name
 JOIN Variables AS v_right ON e.right_operand = v_right.name
+
+
+--1468. Calculate Salaries, https://leetcode.com/problems/calculate-salaries/
+
+/* condition 
+CASE 
+     WHEN @salary < 1000 THEN @salary 
+     WHEN @salary >= 1000 AND @salary <= 10000 THEN ROUND(@salary * 0.24, 0)
+     WHEN @salary > 10000 THEN ROUND(@salary * 0.49, 0)
+
+ */
+SELECT s.company_id, s.employee_id, s.employee_name, CASE 
+                                                        WHEN t.max_salary < 1000 THEN s.salary
+                                                        WHEN t.max_salary  >= 1000 AND t.max_salary <= 10000 THEN CAST(s.salary - ROUND(s.salary * 0.24, 0) AS INT)
+                                                        WHEN t.max_salary  > 10000 THEN CAST(s.salary - ROUND(s.salary * 0.49, 0) AS INT)
+                                                    END AS salary
+FROM Salaries s
+JOIN
+    (SELECT company_id, CASE 
+    WHEN MAX(salary) < 1000
+
+    FROM 
+    GROUP BY company_id) t
+ON s.company_id = t.company_id
+
