@@ -1841,17 +1841,41 @@ CASE
      WHEN @salary > 10000 THEN ROUND(@salary * 0.49, 0)
 
  */
-SELECT s.company_id, s.employee_id, s.employee_name, CASE 
-                                                        WHEN t.max_salary < 1000 THEN s.salary
-                                                        WHEN t.max_salary  >= 1000 AND t.max_salary <= 10000 THEN CAST(s.salary - ROUND(s.salary * 0.24, 0) AS INT)
-                                                        WHEN t.max_salary  > 10000 THEN CAST(s.salary - ROUND(s.salary * 0.49, 0) AS INT)
-                                                    END AS salary
+SELECT s.company_id, s.employee_id, s.employee_name, ROUND(s.salary - s.salary * t.tax_rate, 0) AS salary
 FROM Salaries s
 JOIN
     (SELECT company_id, CASE 
-    WHEN MAX(salary) < 1000
+                            WHEN MAX(salary) < 1000 THEN 0
+                            WHEN MAX(salary) >= 1000 AND MAX(salary) <= 10000 THEN 0.24
+                            ELSE 0.49
+                        END AS tax_rate
 
-    FROM 
+    FROM Salaries
     GROUP BY company_id) t
-ON s.company_id = t.company_id
+ON s.company_id = t.company_id;
+
+
+
+--1532. The Most Recent Three Orders,  https://leetcode.com/problems/the-most-recent-three-orders/
+
+
+SELECT c.name AS customer_name, c.customer_id, t2.order_id, t2.order_date
+FROM Customers c
+CROSS APPLY
+   (SELECT * FROM
+        (SELECT order_id, order_date, customer_id, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date DESC) AS rn
+        FROM Orders) t1
+    WHERE t1.rn <=3 AND t1.customer_id = c.customer_id) t2
+ORDER BY c.name ASC, c.customer_id ASC, t2.order_date DESC;
+
+-- 1532. 1549. The Most Recent Orders for Each Product, https://leetcode.com/problems/the-most-recent-orders-for-each-product/
+
+SELECT product_name, product_id, order_id, order_date
+FROM 
+    (SELECT p.product_name, o.order_id, o.order_date, o.product_id, DENSE_RANK() OVER (PARTITION BY o.product_id ORDER BY o.order_date DESC) AS rnk
+    FROM Orders o
+    JOIN Products p
+    ON o.product_id = p.product_id) t
+WHERE rnk = 1
+ORDER BY product_name ASC, product_id ASC, order_id ASC
 
