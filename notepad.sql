@@ -1868,7 +1868,7 @@ CROSS APPLY
     WHERE t1.rn <=3 AND t1.customer_id = c.customer_id) t2
 ORDER BY c.name ASC, c.customer_id ASC, t2.order_date DESC;
 
--- 1532. 1549. The Most Recent Orders for Each Product, https://leetcode.com/problems/the-most-recent-orders-for-each-product/
+--  1549. The Most Recent Orders for Each Product, https://leetcode.com/problems/the-most-recent-orders-for-each-product/
 
 SELECT product_name, product_id, order_id, order_date
 FROM 
@@ -1879,3 +1879,9 @@ FROM
 WHERE rnk = 1
 ORDER BY product_name ASC, product_id ASC, order_id ASC
 
+
+
+
+-- 1555. Bank Account Summary, https://leetcode.com/problems/bank-account-summary/
+
+-- 1596. The Most Frequently Ordered Products for Each Customer, https://leetcode.com/problems/the-most-frequently-ordered-products-for-each-customer/
