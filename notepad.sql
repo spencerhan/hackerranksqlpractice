@@ -3419,3 +3419,29 @@ FROM
         ON t1.rn = t2.rn
     ) 
 
+
+
+-- 2175. The Change in Global Rankings, https://leetcode.com/problems/the-change-in-global-rankings/
+
+WITH t1 AS (
+    SELECT
+    t.team_id,
+    t.name,
+    ROW_NUMBER() OVER (
+        ORDER BY
+            t.points DESC, t.name
+    ) AS old_rank, ROW_NUMBER()  OVER (
+        ORDER BY
+            (t.points + p.points_change) DESC, t.name
+    ) AS new_rank
+FROM
+    TeamPoints t
+JOIN PointsChange p ON t.team_id = p.team_id
+)
+
+SELECT team_id, name, old_rank - new_rank AS rank_diff
+FROM t1
+
+
+-- 
+
