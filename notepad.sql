@@ -1293,8 +1293,8 @@ SELECT
     ) AS TYPE
 FROM
     Tree AS t1 -- this is similar to the one I have done in hackers rank.
-    -- 612. Shortest Distance in a Plane, https://leetcode.com/problems/shortest-distance-in-a-plane/
-    /* main logic: cross join */
+-- 612. Shortest Distance in a Plane, https://leetcode.com/problems/shortest-distance-in-a-plane/
+/* main logic: cross join */
 SELECT
     CAST(ROUND(MIN(dis), 2) AS DECIMAL(9, 2)) AS shortest
 FROM
@@ -1306,7 +1306,8 @@ FROM
             CROSS JOIN Point2D AS p2
     ) AS t
 WHERE
-    dis > 0 -- this removes self calculating;
+    dis > 0 
+    -- this removes self calculating;
     -- I first thought using cursor turns out it's an over complicated thinking. Cross join is way more efficient. 
     -- 614. Second Degree Follower SELECT f1.followee as follower, COUNT(DISTINCT f1.follower) as num
     /* main logic: self join */
@@ -1319,7 +1320,9 @@ FROM
 GROUP BY
     f1.followee
 ORDER BY
-    f1.followee -- 626. Exchange Seats, https://leetcode.com/problems/exchange-seats/
+    f1.followee 
+
+-- 626. Exchange Seats, https://leetcode.com/problems/exchange-seats/
     /* main logic: do not think iteration or if-else , use LEAD and LAG for swap, ISNULL to deal with the first row */
 SELECT
     s.id AS id,
@@ -1451,7 +1454,9 @@ FROM
     Traffic
 WHERE
     activity_date >= DATEADD(DAY, -90, '2019-06-30')
-    AND activity = 'login' -- 1164. Product Price at a Given Date, https://leetcode.com/problems/product-price-at-a-given-date/
+    AND activity = 'login' 
+
+-- 1164. Product Price at a Given Date, https://leetcode.com/problems/product-price-at-a-given-date/
     /* main logic: 
      step 1: get a list of product that has changed price before the given date 
      step 2: use row number to order the step 1 subset based on the date column.
@@ -1497,7 +1502,9 @@ SELECT
     ) AS price
 FROM
     t1
-    RIGHT JOIN t2 ON t1.product_id = t2.product_id -- 1174. Immediate Food Delivery II, https://leetcode.com/problems/immediate-food-delivery-ii/
+    RIGHT JOIN t2 ON t1.product_id = t2.product_id 
+
+-- 1174. Immediate Food Delivery II, https://leetcode.com/problems/immediate-food-delivery-ii/
     /* main logic: 
      1. row number to get earliest order by date;
      2. then CTEs to organize code
@@ -3443,5 +3450,132 @@ SELECT team_id, name, old_rank - new_rank AS rank_diff
 FROM t1
 
 
--- 
+-- 2228. Users With Two Purchases Within Seven Days, https://leetcode.com/problems/users-with-two-purchases-within-seven-days/
 
+SELECT p1.user_id AS user_id
+FROM Purchases p1
+JOIN Purchases p2
+ON p1.user_id = p2.user_id AND p1.purchase_id != p2.purchase_id 
+WHERE ABS(DATEDIFF(DAY, p1.purchase_date, p2.purchase_date)) <= 7
+GROUP BY p1.user_id
+
+-- 2238. Number of Times a Driver Was a Passenger, https://leetcode.com/problems/number-of-times-a-driver-was-a-passenger/
+
+
+WITH t1 AS (
+    SELECT DISTINCT driver_id
+    FROM Rides
+)
+SELECT t1.driver_id, SUM(IIF(r2.passenger_id IS NULL, 0, 1)) AS cnt
+FROM t1
+LEFT JOIN Rides r2
+ON t1.driver_id = r2.passenger_id
+GROUP BY t1.driver_id
+
+
+
+-- 2292. Products With Three or More Orders in Two Consecutive Years, https://leetcode.com/problems/products-with-three-or-more-orders-in-two-consecutive-years/
+
+WITH purchased_more_than_three AS (
+    SELECT product_id AS product_id, YEAR(purchase_date) AS year
+    FROM Orders
+    GROUP BY product_id, YEAR(purchase_date)
+    HAVING COUNT(order_id) >= 3
+)
+
+SELECT DISTINCT p1.product_id 
+FROM 
+purchased_more_than_three p1
+JOIN purchased_more_than_three p2
+ON p1.product_id = p2.product_id AND p1.year = p2.year + 1
+
+
+-- 2298. Tasks Count in the Weekend, https://leetcode.com/problems/tasks-count-in-the-weekend/
+
+
+WITH t AS (
+    SELECT task_id, assignee_id, CHOOSE(DATEPART(dw, submit_date), 'Weekend','Weekday',
+    'Weekday','Weekday','Weekday','Weekday','Weekend') AS working_day
+    FROM Tasks
+)
+
+SELECT weekend_cnt, working_cnt
+FROM
+(SELECT count(task_id) AS weekend_cnt
+FROM t 
+WHERE t.working_day = 'Weekend') AS t2, (SELECT count(task_id) AS working_cnt FROM t WHERE t.working_day = 'Weekday') AS t3
+
+
+
+
+-- 2308. Arrange Table by Gender,  https://leetcode.com/problems/arrange-table-by-gender/
+WITH female AS (
+    SELECT user_id, gender, (ROW_NUMBER() OVER (ORDER BY user_id)) * 3 + 2 AS rn
+    FROM Genders 
+    WHERE gender = 'female'
+), other AS (
+    SELECT user_id, gender, IIF((ROW_NUMBER() OVER (ORDER BY user_id)) = 1, 6, (ROW_NUMBER() OVER (ORDER BY user_id)) * 3 + 3) AS o_rn
+    FROM Genders 
+    WHERE gender = 'other'
+), male AS (
+    SELECT user_id, gender, IIF((ROW_NUMBER() OVER (ORDER BY user_id)) = 1, 7, (ROW_NUMBER() OVER (ORDER BY user_id)) * 3 + 4) AS m_rn
+    FROM Genders 
+    WHERE gender = 'male'
+), combined AS (
+    SELECT *
+    FROM female
+    UNION ALL
+    SELECT * 
+    FROM other
+    UNION ALL
+    SELECT *
+    FROM male
+)
+SELECT user_id, gender
+FROM combined
+ORDER BY rn
+
+
+-- 2314. The First Day of the Maximum Recorded Degree in Each City, https://leetcode.com/problems/the-first-day-of-the-maximum-recorded-degree-in-each-city/
+SELECT city_id, day, degree
+FROM (SELECT w.city_id, w.day, w.degree, ROW_NUMBER() OVER (PARTITION BY w.city_id ORDER BY  w.day) AS rn
+        FROM Weather w
+        JOIN
+            (SELECT city_id, MAX(degree) AS max_degree
+            FROM Weather
+            GROUP BY city_id) t
+        ON w.city_id = t.city_id AND w.degree = t.max_degree) t1
+WHERE rn = 1
+
+
+/* simpler */
+
+
+SELECT city_id, day, degree
+FROM (SELECT city_id, day, degree, DENSE_RANK() OVER (PARTITION BY city_id ORDER BY degree DESC, day ASC) AS rnk
+     FROM Weather
+     ) AS t
+WHERE rnk = 1
+ORDER BY city_id ASC;
+ 
+
+-- 2324. Product Sales Analysis IV, https://leetcode.com/problems/product-sales-analysis-iv/
+
+
+WITH t1 AS (
+        SELECT SUM(quantity) AS tot_quantity, product_id, user_id
+        FROM Sales 
+        GROUP BY product_id, user_id
+
+
+), t2 AS (
+    SELECT t1.user_id, t1.product_id, DENSE_RANK() OVER (PARTITION BY t1.user_id ORDER BY p.price * t1.tot_quantity DESC) AS rnk
+    FROM t1
+    JOIN Product p
+    ON t1.product_id = p.product_id
+
+)
+
+SELECT user_id, product_id
+FROM t2
+WHERE rnk = 1
