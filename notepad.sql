@@ -1643,7 +1643,8 @@ SELECT
     ) AS 'Cancellation Rate'
 FROM
     t3
-    RIGHT JOIN t4 ON t3.request_at = t4.request_at -- 1193. Monthly Transactions I， https://leetcode.com/problems/monthly-transactions-i/
+    RIGHT JOIN t4 ON t3.request_at = t4.request_at 
+-- 1193. Monthly Transactions I， https://leetcode.com/problems/monthly-transactions-i/
     WITH t1 AS (
         SELECT
             FORMAT(trans_date, 'yyyy-MM') AS MONTH,
@@ -1720,7 +1721,8 @@ ORDER BY
             WHEN state IS NOT NULL THEN 1
             ELSE 0
         END
-    ) DESC -- 1204. Last Person to Fit in the Bus, https://leetcode.com/problems/last-person-to-fit-in-the-bus/
+    ) DESC 
+-- 1204. Last Person to Fit in the Bus, https://leetcode.com/problems/last-person-to-fit-in-the-bus/
 SELECT
     TOP 1 person_name
 FROM
@@ -1738,7 +1740,8 @@ FROM
 WHERE
     rolling_total <= 1000
 ORDER BY
-    turn DESC -- 1841. League Statistics, https://leetcode.com/problems/league-statistics/
+    turn DESC 
+-- 1841. League Statistics, https://leetcode.com/problems/league-statistics/
     /* failed on first try, forgot to use Union All 
      main logic: 
      1. try deal the problem from two angels, home game and away game.
@@ -3579,3 +3582,14 @@ WITH t1 AS (
 SELECT user_id, product_id
 FROM t2
 WHERE rnk = 1
+
+-- 2142. The Number of Passengers in Each Bus I, https://leetcode.com/problems/the-number-of-passengers-in-each-bus-i/
+
+SELECT t1.bus_id, SUM(IIF(p.passenger_id IS NOT NULL, 1, 0)) AS passengers_cnt
+FROM
+    (SELECT bus_id, arrival_time, ISNULL(LAG(arrival_time, 1) OVER (ORDER BY arrival_time), 0) AS arrival_window
+    FROM Buses) t1
+LEFT JOIN Passengers p
+ON p.arrival_time <= t1.arrival_time AND p.arrival_time > t1.arrival_window
+GROUP BY t1.bus_id
+ORDER BY t1.bus_id
