@@ -41,7 +41,7 @@ ON t3.request_at = t4.request_at
 
 SELECT
     request_at AS DAY,
-        Round(SUM(
+        ROUND(SUM(
             CASE
                 WHEN STATUS <> 'completed' THEN 1.0
                 ELSE 0.0
@@ -94,78 +94,127 @@ ORDER BY 1, year(t3.date)
 OPTION (maxrecursion 0)
 
 --2153. The Number of Passengers in Each Bus II, https://leetcode.com/problems/the-number-of-passengers-in-each-bus-ii/
-/* ORDER BY used for running total */
+
 
 WITH t1 AS (
+    -- bus arriving window and arriving order
     SELECT
         bus_id,
         arrival_time,
-        LAG(arrival_time, 1, -1) OVER (
-            ORDER BY
-                arrival_time
-        ) AS pre_bus_time,
+        capacity,
         ROW_NUMBER() OVER (
             ORDER BY
                 arrival_time
         ) AS rn,
-        capacity
+        LAG(arrival_time, 1, -1) OVER (
+            ORDER BY
+                arrival_time
+        ) AS prev_arrival_time
     FROM
         Buses
 ),
 t2 AS (
+    -- attaching arriving window to passengers, counting passengers count.
+    -- this gives the passenger per bus if we are not considering capacity.
+    -- the first bus will take all first two passengers, the second bus takes none, and the last bus takes the remaining 3. obvisiously this is not correct.
     SELECT
-        t1.rn,
         t1.bus_id,
+        t1.rn,
         t1.capacity,
-        COUNT(p.passenger_id) AS current_passenger_cnt
+        COUNT(p.passenger_id) AS passenger_cnt
     FROM
         t1
-        LEFT JOIN Passengers p ON p.arrival_time <= t1.arrival_time
-        AND p.arrival_time > t1.pre_bus_time
+        LEFT JOIN Passengers p -- using left join as we have to multiple passengers arrival at the same arrival window.
+        ON p.arrival_time > t1.prev_arrival_time
+        AND p.arrival_time <= t1.arrival_time
     GROUP BY
-        t1.rn,
         t1.bus_id,
+        t1.rn,
         t1.capacity
-),
-recursive_cte AS (
+), recursive_cte AS ( -- now we need a reiteration to update remaining passengers, to see if they fit into next buses capacity
+    SELECT bus_id, rn, capacity, passenger_cnt, IIF(passenger_cnt - capacity <= 0, 0, passenger_cnt - capacity) AS remaining_p
+    FROM t2
+    WHERE rn = 1
+    UNION ALL
+    -- the next bus from t2 table
+    SELECT t2.bus_id,t2.rn, t2.capacity, cte.remaining_p + t2.passenger_cnt AS passenger_cnt, IIF(cte.remaining_p + t2.passenger_cnt - t2.capacity <= 0, 0, cte.remaining_p + t2.passenger_cnt - t2.capacity) AS remaining_p
+    FROM recursive_cte cte
+    JOIN t2 ON t2.rn = cte.rn + 1 -- getting updated count of remaining passenger from previous bus and capacity of the next ariving bus
+)
+
+SELECT bus_id, IIF(remaining_p <= 0, passenger_cnt, capacity) AS passengers_cnt -- if no remaining passenger, then all passengers are taken, if there are remaining passenger, then bus capacity is full
+FROM 
+recursive_cte
+ORDER BY bus_id
+
+
+-- 569. Median Employee Salary, https://leetcode.com/problems/median-employee-salary/
+
+
+SELECT id, company, salary
+FROM 
+    (SELECT id, company, salary, ROW_NUMBER() OVER (PARTITION BY company ORDER BY salary) AS rn, COUNT(1) OVER (PARTITION BY company) employee_cnt
+    FROM Employee) t
+WHERE (employee_cnt % 2 = 0 AND rn IN (employee_cnt/2, employee_cnt/2 + 1)) OR (employee_cnt % 2 = 1 AND rn = ceiling(employee_cnt/2.0))
+
+
+-- 1767. Find the Subtasks That Did Not Execute, https://leetcode.com/problems/find-the-subtasks-that-did-not-execute/
+
+WITH recursive_cte AS ( -- this give a table of all tasks and their matching subtasks
     SELECT
-        rn,
-        bus_id,
-        capacity,
-        current_passenger_cnt,
-        IIF(
-            current_passenger_cnt - capacity <= 0,
-            0,
-            current_passenger_cnt - capacity
-        ) AS remaining_passenger_cnt
+        task_id,
+        subtasks_count,
+        1 AS subtasks
     FROM
-        t2
+        Tasks
+    UNION ALL
+    SELECT
+        task_id,
+        subtasks_count,
+        subtasks + 1
+    FROM
+        recursive_cte
     WHERE
-        rn = 1
+        subtasks < subtasks_count
+)
+
+SELECT c.task_id, c.subtasks AS subtask_id
+FROM recursive_cte c
+LEFT JOIN Executed e
+ON c.task_id = e.task_id AND c.subtasks = e.subtask_id 
+WHERE e.task_id IS NULL  -- anything does not match is our missing subtasks that was not executed.
+ORDER BY 1, 2
+
+
+/* this recursive does the same, I just realise I could do the count reversely */
+
+
+WITH recursive_cte AS (
+    SELECT
+        task_id,
+        subtasks_count
+    FROM
+        Tasks
     UNION
     ALL
     SELECT
-        t2.rn,
-        t2.bus_id,
-        t2.capacity,
-        t2.current_passenger_cnt + rc.remaining_passenger_cnt AS current_passenger_cnt,
-        IIF(
-            t2.current_passenger_cnt + rc.remaining_passenger_cnt - t2.capacity <= 0,
-            0,
-            t2.current_passenger_cnt + rc.remaining_passenger_cnt - t2.capacity
-        ) AS remaining_passenger_cnt
+        task_id,
+        subtasks_count - 1
     FROM
-        recursive_cte rc
-        JOIN t2 ON t2.rn = rc.rn + 1
+        recursive_cte
+    WHERE
+        subtasks_count > 1
 )
 SELECT
-    bus_id,
-    IIF(
-        remaining_passenger_cnt > 0,
-        capacity,
-        current_passenger_cnt
-    ) AS passengers_cnt
+    c.task_id,
+    c.subtasks_count AS subtask_id
 FROM
-    recursive_cte
-ORDER BY
-    bus_id
+    recursive_cte c
+    LEFT JOIN executed e ON c.task_id = e.task_id
+    AND c.subtasks_count = e.subtask_id
+WHERE
+    e.task_id IS NULL
+ORDER BY c.task_id, c.subtasks_count
+
+
+-- 1479. Sales by Day of the Week, https://leetcode.com/problems/sales-by-day-of-the-week/
