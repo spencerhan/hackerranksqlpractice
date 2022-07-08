@@ -95,7 +95,6 @@ OPTION (maxrecursion 0)
 
 --2153. The Number of Passengers in Each Bus II, https://leetcode.com/problems/the-number-of-passengers-in-each-bus-ii/
 
-
 WITH t1 AS (
     -- bus arriving window and arriving order
     SELECT
@@ -115,7 +114,7 @@ WITH t1 AS (
 ),
 t2 AS (
     -- attaching arriving window to passengers, counting passengers count.
-    -- this gives the passenger per bus if we are not considering capacity.
+    -- this gives the passenger per bus if we are not considering the capacity constrain.
     -- the first bus will take all first two passengers, the second bus takes none, and the last bus takes the remaining 3. obvisiously this is not correct.
     SELECT
         t1.bus_id,
@@ -200,8 +199,7 @@ WITH recursive_cte AS (
     SELECT
         task_id,
         subtasks_count - 1
-    FROM
-        recursive_cte
+    FROM   recursive_cte
     WHERE
         subtasks_count > 1
 )
@@ -218,3 +216,76 @@ ORDER BY c.task_id, c.subtasks_count
 
 
 -- 1479. Sales by Day of the Week, https://leetcode.com/problems/sales-by-day-of-the-week/
+
+SET DATEFIRST 1;
+WITH pvt AS (
+    SELECT item_id, SUM(IIF(DATEPART(WEEKDAY, order_date) = 1, quantity, 0)) AS 'MONDAY',
+                                           SUM(IIF(DATEPART(WEEKDAY, order_date) = 2, quantity, 0)) AS 'TUESDAY',
+                                           SUM(IIF(DATEPART(WEEKDAY, order_date) = 3, quantity, 0)) AS 'WEDNESDAY',
+                                           SUM(IIF(DATEPART(WEEKDAY, order_date) = 4, quantity, 0)) AS 'THURSDAY',
+                                           SUM(IIF(DATEPART(WEEKDAY, order_date) = 5, quantity, 0)) AS 'FRIDAY',
+                                           SUM(IIF(DATEPART(WEEKDAY, order_date) = 6, quantity, 0)) AS 'SATURDAY',
+                                           SUM(IIF(DATEPART(WEEKDAY, order_date) = 7, quantity, 0)) AS 'SUNDAY'
+                                           
+    FROM Orders 
+    GROUP BY item_id
+)
+
+SELECT i.item_category AS CATEGORY, SUM(IIF(p.item_id IS NOT NULL, p.MONDAY, 0)) AS MONDAY,
+                                    SUM(IIF(p.item_id IS NOT NULL, p.TUESDAY, 0)) AS TUESDAY,
+                                    SUM(IIF(p.item_id IS NOT NULL, p.WEDNESDAY, 0)) AS WEDNESDAY,
+                                    SUM(IIF(p.item_id IS NOT NULL, p.THURSDAY, 0)) AS THURSDAY,
+                                    SUM(IIF(p.item_id IS NOT NULL, p.FRIDAY, 0)) AS FRIDAY,
+                                    SUM(IIF(p.item_id IS NOT NULL, p.SATURDAY, 0)) AS SATURDAY,
+                                    SUM(IIF(p.item_id IS NOT NULL, p.SUNDAY, 0)) AS SUNDAY
+FROM pvt p
+RIGHT JOIN Items i 
+ON p.item_id = i.item_id
+GROUP BY i.item_category
+ORDER BY i.item_category
+
+
+-- 1369. Get the Second Most Recent Activity, https://leetcode.com/problems/get-the-second-most-recent-activity/
+WITH t AS (
+SELECT username, activity, ROW_NUMBER() OVER (PARTITION BY username ORDER BY startDate DESC) AS rn, COUNT(startDate) OVER (PARTITION BY username) AS cnt, startDate, endDate
+FROM UserActivity
+)
+
+SELECT username, activity, startDate, endDate
+FROM t
+WHERE cnt = 1
+UNION ALL
+SELECT  username, activity, startDate, endDate
+FROM t
+WHERE rn = 2
+
+
+-- 1651. Hopper Company Queries III, https://leetcode.com/problems/hopper-company-queries-iii/
+
+/* three month running average without window function 
+    can substitute with AVG() OVER (ORDER BY 'date' ROWS BETWEEN 2 PRECEEDING AND CURRENT ROW)
+*/
+
+WITH t1 AS (
+    SELECT
+        1 AS month
+    UNION
+    ALL
+    SELECT
+        1 + month
+    FROM
+        t1
+    WHERE
+        month < 12
+)
+SELECT 
+  t1.month,
+  ROUND(ISNULL((SUM(ride_distance) * 1.0) / 3, 0.00),2) AS average_ride_distance,
+  ROUND(ISNULL((SUM(ride_duration) * 1.0) / 3, 0.00),2) AS average_ride_duration
+FROM t1 
+LEFT JOIN Rides r 
+ON (MONTH(r.requested_at) BETWEEN t1.month AND t1.month + 2) AND YEAR(r.requested_at) = 2020
+LEFT JOIN AcceptedRides a ON a.ride_id = r.ride_id
+GROUP BY t1.month
+HAVING t1.month <= 10
+ORDER BY t1.month
