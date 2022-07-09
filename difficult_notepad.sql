@@ -289,3 +289,35 @@ LEFT JOIN AcceptedRides a ON a.ride_id = r.ride_id
 GROUP BY t1.month
 HAVING t1.month <= 10
 ORDER BY t1.month
+
+
+
+-- 2253. Dynamic Unpivoting of a Table, https://leetcode.com/problems/dynamic-unpivoting-of-a-table/
+
+
+CREATE PROCEDURE UnpivotProducts AS
+BEGIN
+    /* Write your T-SQL query statement below. */
+ 
+
+    DECLARE @output TABLE (product_id int, store varchar(100), price int)
+    DECLARE @query NVARCHAR(MAX)
+    
+    SELECT @column_list = COALESCE(@column_list + ',', '') + QUOTENAME(COLUMN_NAME)
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = N'Products' AND COLUMN_NAME <> 'product_id'
+
+    -- INSERT INTO @output (product_id, store, price)
+    SET @query = N'
+    SELECT product_id, store, price
+    FROM Products
+    UNPIVOT ( 
+            price FOR store IN ('+@column_list+')
+    ) AS unpvt
+    ';
+    EXEC sp_executesql @query;
+END
+
+
+-- 618. Students Report By Geography https://leetcode.com/problems/students-report-by-geography/
+
