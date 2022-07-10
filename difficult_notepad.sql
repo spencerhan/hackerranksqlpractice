@@ -264,6 +264,8 @@ WHERE rn = 2
 
 /* three month running average without window function 
     can substitute with AVG() OVER (ORDER BY 'date' ROWS BETWEEN 2 PRECEEDING AND CURRENT ROW)
+
+    filter(where) on join clause, not after
 */
 
 WITH t1 AS (
@@ -316,8 +318,56 @@ BEGIN
     ) AS unpvt
     ';
     EXEC sp_executesql @query;
-END
+END;
 
 
 -- 618. Students Report By Geography https://leetcode.com/problems/students-report-by-geography/
 
+/* standard */
+SELECT MAX(America) AS America, MAX(Asia) AS Asia, MAX(Europe) AS Europe
+FROM 
+    (SELECT ROW_NUMBER() OVER (PARTITION BY continent ORDER BY name) AS row_id,
+            IIF(continent = 'America', name, null) AS America,
+            IIF(continent = 'Asia', name, null) AS Asia,
+            IIF(continent = 'Europe', name, null) AS Europe
+    FROM Student
+    ) t
+GROUP BY row_id;
+
+
+/* pivot function */
+
+SELECT America, Asia, Europe
+FROM 
+(SELECT ROW_NUMBER() OVER (PARTITION BY continent ORDER BY name) AS row_id, name, continent
+FROM
+ Student
+) AS t
+PIVOT
+(MAX(name) FOR continent in (America, Asia, Europe)) AS pvt; 
+
+ -- 1225. Report Contiguous Dates, https://leetcode.com/problems/report-contiguous-dates/
+
+WITH failed_and_successed AS (
+    SELECT 'failed' AS period_state,
+            f.fail_date AS date,
+            ROW_NUMBER() OVER (ORDER BY f.fail_date) AS date_order
+    FROM Failed f
+    WHERE f.fail_date BETWEEN '2019-01-01' AND '2019-12-31'
+    UNION ALL
+    SELECT 'succeeded' AS period_state,
+            s.success_date AS date,
+            ROW_NUMBER() OVER (ORDER BY s.success_date) AS date_order
+    FROM Succeeded s
+    WHERE s.success_date BETWEEN '2019-01-01' AND '2019-12-31'
+), group_interval AS (
+    SELECT period_state, date, ROW_NUMBER() OVER (ORDER BY date) - date_order AS interval
+    FROM failed_and_successed
+) 
+SELECT period_state, MIN(date) AS start_date, MAX(date) AS end_date
+FROM group_interval
+GROUP BY interval, period_state
+ORDER BY start_date;
+
+
+-- 1412. Find the Quiet Students in All Exams, https://leetcode.com/problems/find-the-quiet-students-in-all-exams/

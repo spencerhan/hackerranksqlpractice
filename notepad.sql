@@ -1,21 +1,34 @@
 /* 
  
  MSSQL pivot syntax https://www.c-sharpcorner.com/UploadFile/f0b2ed/pivot-and-unpovit-in-sql-server/
- 
+ https://docs.microsoft.com/en-us/sql/t-sql/queries/from-using-pivot-and-unpivot?view=sql-server-ver16
+
  SELECT <non-pivoted column>,  
  <list of pivoted column>  
  FROM  
- (<SELECT query  to produces the data>)  
+ (<SELECT query to produces the data>)  
  AS <alias name>  
  PIVOT  
  (  
  <aggregation function>(<column name>)  
  FOR  
- [<column name that  become column headers>]  
+ [<column name that become column headers>]  
  IN ( [list of  pivoted columns])  
  
  ) AS <alias name  for  pivot table>  
  
+
+ Unpivot
+
+ SELECT <non-unpivoted column>, <unpivoted column> 
+FROM   
+   (SELECT  <non-unpivoted column>, <a list of categorical columns>
+   FROM pvt) p  
+UNPIVOT  
+   (<aggregation function>(<column name>) FOR <unpivoted column>  IN   
+      ( <a list of categorical columns>)  
+)AS unpvt;  
+GO
  
  */
 -- New Companies solution, https://www.hackerrank.com/challenges/the-company/problem?isFullScreen=true, Advanced Select
@@ -1912,8 +1925,9 @@ GROUP BY
 HAVING
     COUNT(DISTINCT login_date) >= 5
 ORDER BY
-    1 -- 1811. Find Interview Candidates, https://leetcode.com/problems/find-interview-candidates/
-    /* the main logic is similar to 1454, with 1 caveat thatL 
+    1 
+-- 1811. Find Interview Candidates, https://leetcode.com/problems/find-interview-candidates/
+    /* the main logic is similar to 1454, with 1 caveat that
      unlike date, to calculate consective number we use contest_id + rank - 1 */
     WITH t1 AS (
         SELECT
@@ -3592,4 +3606,6 @@ FROM
 LEFT JOIN Passengers p
 ON p.arrival_time <= t1.arrival_time AND p.arrival_time > t1.arrival_window
 GROUP BY t1.bus_id
-ORDER BY t1.bus_id
+ORDER BY t1.bus_id;
+
+
