@@ -356,8 +356,7 @@ WITH failed_and_successed AS (
     WHERE f.fail_date BETWEEN '2019-01-01' AND '2019-12-31'
     UNION ALL
     SELECT 'succeeded' AS period_state,
-            s.success_date AS date,
-            ROW_NUMBER() OVER (ORDER BY s.success_date) AS date_order
+            s.success_date AS date,            ROW_NUMBER() OVER (ORDER BY s.success_date) AS date_order
     FROM Succeeded s
     WHERE s.success_date BETWEEN '2019-01-01' AND '2019-12-31'
 ), group_interval AS (
@@ -371,3 +370,73 @@ ORDER BY start_date;
 
 
 -- 1412. Find the Quiet Students in All Exams, https://leetcode.com/problems/find-the-quiet-students-in-all-exams/
+/* simple window function, but I didn't resolve it somehow, not sure why. */
+
+WITH ranking AS (
+    SELECT s.student_id, s.student_name,
+    DENSE_RANK() OVER (PARTITION BY e.exam_id ORDER BY e.score DESC) AS high_rank, 
+    DENSE_RANK() OVER (PARTITION BY e.exam_id ORDER BY e.score ASC) AS low_rank
+    FROM Student s
+    JOIN Exam e
+    ON s.Student_id = e.Student_id
+)
+SELECT student_id, student_name
+FROM ranking 
+WHERE student_id NOT IN (SELECT student_id FROM ranking WHERE high_rank = 1 OR low_rank = 1)
+GROUP BY student_id, student_name
+ORDER BY 1;
+
+
+-- 1159. Market Analysis II ,https://leetcode.com/problems/market-analysis-ii/
+SELECT u.user_id AS seller_id, IIF(t1.seller_id IS NULL OR u.favorite_brand <> t1.item_brand, 'no', 'yes') AS '2nd_item_fav_brand'
+FROM Users u 
+LEFT JOIN
+    (SELECT i.item_brand, t.seller_id 
+    FROM 
+        (SELECT ROW_NUMBER() OVER (PARTITION BY seller_id ORDER BY order_date) AS rn, item_id, seller_id 
+        FROM Orders) t
+    JOIN Items i
+    ON t.item_id = i.item_id AND t.rn = 2
+    ) t1
+ON u.user_id = t1.seller_id;
+
+--2118. Build the Equation, https://leetcode.com/problems/build-the-equation/
+
+WITH t1 AS (
+    SELECT CASE 
+                WHEN factor = 0 THEN ''
+                WHEN (power = 0) AND (factor > 0) THEN CONCAT('+', factor)
+                WHEN (power = 0) AND (factor < 0) THEN CONCAT('-', ABS(factor))
+                WHEN (power = 1) AND (factor > 0) THEN CONCAT('+', factor, 'X')
+                WHEN (power = 1) AND (factor < 0) THEN CONCAT('-', ABS(factor), 'X')
+                WHEN (power > 1) AND (factor > 0) THEN CONCAT('+', factor, 'X^', power)
+                WHEN (power > 1) AND (factor < 0) THEN CONCAT('-', ABS(factor), 'X^', power)
+            END AS term, power
+    FROM Terms 
+) 
+
+SELECT CONCAT(STRING_AGG(term,'') WITHIN GROUP (ORDER BY power desc), '=0') AS equation
+FROM t1
+
+-- 2010. The Number of Seniors and Juniors to Join the Company II, https://leetcode.com/problems/the-number-of-seniors-and-juniors-to-join-the-company-ii/
+
+
+WITH all_running_total AS (
+    SELECT employee_id, experience, salary, SUM(salary) OVER (PARTITION BY experience ORDER BY salary ASC) AS running_total
+    FROM Candidates
+), senior_candidates AS (
+    SELECT employee_id, experience, running_total
+    FROM all_running_total
+    WHERE experience = 'Senior' AND running_total < 70000
+), junior_candidates AS (
+    SELECT employee_id, experience, running_total
+    FROM all_running_total 
+    -- maybe can't hire any Senior. and 70000 - SELECT is slower than SELECT 70000 - 
+    WHERE experience = 'Junior' AND running_total <  (SELECT 70000 - ISNULL(MAX(running_total),0) FROM senior_candidates) 
+)
+
+SELECT employee_id 
+FROM junior_candidates
+UNION 
+SELECT employee_id 
+FROM senior_candidates
