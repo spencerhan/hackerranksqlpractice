@@ -431,7 +431,7 @@ WITH all_running_total AS (
 ), junior_candidates AS (
     SELECT employee_id, experience, running_total
     FROM all_running_total 
-    -- maybe can't hire any Senior. and 70000 - SELECT is slower than SELECT 70000 - 
+                                                     -- maybe can't hire any Senior. and 70000 - SELECT is slower than SELECT 70000 - 
     WHERE experience = 'Junior' AND running_total <  (SELECT 70000 - ISNULL(MAX(running_total),0) FROM senior_candidates) 
 )
 
@@ -440,3 +440,60 @@ FROM junior_candidates
 UNION 
 SELECT employee_id 
 FROM senior_candidates
+
+
+
+-- 615. Average Salary: Departments VS Company, https://leetcode.com/problems/average-salary-departments-vs-company/
+
+WITH company_avg AS (
+    SELECT FORMAT(s.pay_date,'yyyy-MM') AS pay_month, AVG(s.amount * 1.00) AS average
+    FROM Salary s
+    JOIN Employee e
+    ON s.employee_id = e.employee_id 
+    GROUP BY FORMAT(s.pay_date,'yyyy-MM')
+), department_avg AS (
+
+    SELECT FORMAT(s.pay_date,'yyyy-MM') AS pay_month, AVG(s.amount * 1.00) AS average, e.department_id
+    FROM Salary s
+    JOIN Employee e
+    ON s.employee_id = e.employee_id 
+    GROUP BY FORMAT(s.pay_date,'yyyy-MM'), e.department_id
+)
+SELECT d.pay_month, d.department_id, CASE 
+                                        WHEN d.average > c.average THEN 'higher'
+                                        WHEN d.average < c.average THEN 'lower'
+                                        ELSE 'same' 
+                                     END AS comparison 
+FROM company_avg c  
+JOIN department_avg d
+ON c.pay_month  = d.pay_month;
+
+-- 2173. Longest Winning Streak, https://leetcode.com/problems/longest-winning-streak/
+
+WITH all_match AS (
+    SELECT player_id, match_day, ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY match_day) AS rn
+    FROM Matches
+ 
+), win_match AS (
+    SELECT player_id, match_day, ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY match_day) AS rn
+    FROM  Matches
+    WHERE result = 'Win'
+), t AS (
+
+    SELECT  all_match.player_id, 
+            all_match.rn - win_match.rn AS DIFF, 
+            COUNT(DISTINCT all_match.match_day) AS cnt, -- consective days
+            RANK() OVER (PARTITION BY all_match.player_id ORDER BY COUNT(DISTINCT all_match.match_day) DESC) AS rnk -- rank by consective days
+    FROM all_match
+    JOIN win_match 
+    ON all_match.player_id = win_match.player_id AND all_match.match_day = win_match.match_day
+    GROUP BY all_match.player_id, all_match.rn - win_match.rn
+)
+
+SELECT DISTINCT m.player_id, IIF(t.player_id IS NULL, 0, cnt) AS longest_streak -- missing players are not winning players
+FROM Matches m
+LEFT JOIN t
+ON m.player_id = t.player_id
+AND t.rnk = 1
+
+-- 2252. Dynamic Pivoting of a Table, https://leetcode.com/problems/dynamic-pivoting-of-a-table/
