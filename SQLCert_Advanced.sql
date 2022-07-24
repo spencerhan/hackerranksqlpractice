@@ -48,3 +48,42 @@ PIVOT
 ON c.code = t.coin_code
 GROUP BY c.algorithm
 ORDER BY c.algorithm
+
+
+-- q3
+
+CREATE TABLE TIMESHEETS
+(
+     EMP_ID INTEGER,
+     TIMESHEET_START_DATE DATE,
+     TIMESHEET_END_DATE DATE
+);
+
+EMP_ID      |  TIMESHEET_START_DATE |  TIMESHEET_END_DATE
+------------+-----------------+---------------
+   xyz      |        2018-01-01     |  2018-02-01
+   xyz      |        2018-02-15     |  2018-03-19
+   abc      |        2018-01-16     |  2018-03-01
+   abc      |        2018-03-08     |  2018-03-19
+
+WITH recursive_cte AS (
+    SELECT emp_id, timesheet_start_date, timesheet_end_date
+    FROM TIMESHEETS
+    UNION ALL 
+    SELECT cte.emp_id, cte.timesheet_start_date, t.timesheet_end_date
+    FROM TIMESHEETS t
+    JOIN recursive_cte cte
+    ON t.emp_id = cte.emp_id AND t.timesheet_start_date = cte.timesheet_end_date
+), t2 AS (
+    SELECT emp_id, timesheet_start_date, MAX(timesheet_end_date) AS timesheet_end_date
+    FROM recursive_cte
+    GROUP BY emp_id, timesheet_start_date
+), t3 AS (
+    SELECT emp_id, MIN(timesheet_start_date) AS timesheet_start_date, timesheet_end_date
+    FROM t2
+    GROUP BY emp_id, timesheet_end_date
+)
+
+SELECT *, ROW_NUMBER() OVER (PARTITION BY emp_id ORDER BY timesheet_end_date) AS nth_chain
+FROM t3
+OPTION (maxrecursion 0)
