@@ -96,17 +96,57 @@ OPTION (maxrecursion 0)
 --2153. The Number of Passengers in Each Bus II, https://leetcode.com/problems/the-number-of-passengers-in-each-bus-ii/
 <<<<<<< HEAD
 /* ORDER BY used for running total */
-WITH t1 AS ( -- bus arriving window and arriving order
-    SELECT bus_id, arrival_time, capacity, ROW_NUMBER() OVER (ORDER BY arrival_time) AS rn, LAG(arrival_time, 1, -1) OVER (ORDER BY arrival_time) AS prev_arrival_time
-    FROM Buses 
-    
-), t2 AS ( -- attaching arriving window to passengers, counting passengers count
-    SELECT t1.bus_id, t1.rn, t1.capacity, COUNT(p.passenger_id) AS passenger_cnt
-        FROM t1
+
+WITH t1 AS (
+    -- bus arriving window and arriving order
+    SELECT
+        bus_id,
+        arrival_time,
+        capacity,
+        ROW_NUMBER() OVER (
+            ORDER BY
+                arrival_time
+        ) AS rn,
+        LAG(arrival_time, 1, -1) OVER (
+            ORDER BY
+                arrival_time
+        ) AS prev_arrival_time
+    FROM
+        Buses
+),
+t2 AS (
+    -- attaching arriving window to passengers, counting passengers count.
+    -- this gives the passenger per bus if we are not considering capacity.
+    -- the first bus will take all first two passengers, the second bus takes none, and the last bus takes the remaining 3. obvisiously this is not correct.
+    SELECT
+        t1.bus_id,
+        t1.rn,
+        t1.capacity,
+        COUNT(p.passenger_id) AS passenger_cnt
+    FROM
+        t1
         LEFT JOIN Passengers p -- using left join as we have to multiple passengers arrival at the same arrival window.
-        ON p.arrival_time > t1.prev_arrival_time AND p.arrival_time <= t1.arrival_time
-        GROUP BY t1.bus_id, t1.rn, t1.capacity
+        ON p.arrival_time > t1.prev_arrival_time
+        AND p.arrival_time <= t1.arrival_time
+    GROUP BY
+        t1.bus_id,
+        t1.rn,
+        t1.capacity
+), recursive_cte AS ( -- now we need a reiteration to update remaining passengers, to see if they fit into next buses capacity
+    SELECT bus_id, rn, capacity, passenger_cnt, IIF(passenger_cnt - capacity <= 0, 0, passenger_cnt - capacity) AS remaining_p
+    FROM t2
+    WHERE rn = 1
+    UNION ALL
+    -- the next bus from t2 table
+    SELECT t2.bus_id,t2.rn, t2.capacity, cte.remaining_p + t2.passenger_cnt AS passenger_cnt, IIF(cte.remaining_p + t2.passenger_cnt - t2.capacity <= 0, 0, cte.remaining_p + t2.passenger_cnt - t2.capacity) AS remaining_p
+    FROM recursive_cte cte
+    JOIN t2 ON t2.rn = cte.rn + 1 -- getting updated count of remaining passenger from previous bus and capacity of the next ariving bus
 )
+
+SELECT bus_id, IIF(remaining_p <= 0, passenger_cnt, capacity) AS passengers_cnt -- if no remaining passenger, then all passengers are taken, if there are remaining passenger, then bus capacity is full
+FROM 
+recursive_cte
+ORDER BY bus_id
 
 
 -- 15 days of sql, https://www.hackerrank.com/challenges/15-days-of-learning-sql/problem?isFullScreen=false
