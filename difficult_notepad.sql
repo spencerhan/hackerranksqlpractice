@@ -165,27 +165,21 @@ DECLARE @result VARCHAR(MAX);
 SELECT @RESULT = STRING_AGG(result, '&') FROM @t;
 PRINT @result;
 =======
-
+-- 2153. The Number of Passengers in Each Bus II, https://leetcode.com/problems/the-number-of-passengers-in-each-bus-ii/
 WITH t1 AS (
     -- bus arriving window and arriving order
     SELECT
         bus_id,
         arrival_time,
         capacity,
-        ROW_NUMBER() OVER (
-            ORDER BY
-                arrival_time
-        ) AS rn,
-        LAG(arrival_time, 1, -1) OVER (
-            ORDER BY
-                arrival_time
-        ) AS prev_arrival_time
+        ROW_NUMBER() OVER (ORDER BY arrival_time ) AS rn,
+        LAG(arrival_time, 1, -1) OVER (ORDER BY arrival_time) AS prev_arrival_time
     FROM
         Buses
 ),
 t2 AS (
     -- attaching arriving window to passengers, counting passengers count.
-    -- this gives the passenger per bus if we are not considering the capacity constrain.
+    -- this gives the passenger per bus if we are not considering capacity.
     -- the first bus will take all first two passengers, the second bus takes none, and the last bus takes the remaining 3. obvisiously this is not correct.
     SELECT
         t1.bus_id,
